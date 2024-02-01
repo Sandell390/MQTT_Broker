@@ -2,10 +2,13 @@ use std::{ io::{ Read, Write }, net::{ SocketAddr, TcpListener, TcpStream }, thr
 use local_ip_address::local_ip;
 
 mod control_packet;
+mod common_fn;
 
 fn handle_connection(mut stream: TcpStream) {
     // Print client connection information
     println!("Client connected: {:?}", stream.peer_addr().unwrap());
+
+    let mut has_first_packet_arrived: bool = false;
 
     // Infinite loop to continuously read data from the client
     loop {
@@ -33,53 +36,146 @@ fn handle_connection(mut stream: TcpStream) {
                 // Match for incoming packets
                 match packet_type {
                     1 => {
-                        let return_packet: [u8; 4] = control_packet::connect::validate(
-                            buffer,
-                            bytes_read
-                        );
-                        let _ = stream.write(&return_packet);
-                        let _ = stream.flush();
+                        // Connect
+                        if !has_first_packet_arrived {
+                            match control_packet::connect::validate(buffer, bytes_read) {
+                                Ok(return_packet) => {
+                                    let _ = stream.write(&return_packet);
+                                    let _ = stream.flush();
+
+                                    if return_packet != [32, 2, 0, 0] {
+                                        println!("Connack not accepted {:?}", return_packet);
+                                        let _ = stream.shutdown(std::net::Shutdown::Both);
+                                    }
+                                }
+                                Err(err) => {
+                                    println!("An error has occured: {}", err);
+                                    let _ = stream.shutdown(std::net::Shutdown::Both);
+                                }
+                            }
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     2 => {
                         // CONNACK
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     3 => {
                         // PUBLISH
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     4 => {
                         // PUBACK
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     5 => {
                         // PUBREC
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     6 => {
                         // PUBREL
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     7 => {
                         // PUBCOMP
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     8 => {
                         // SUBSCRIBE
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     9 => {
                         // SUBACK
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     10 => {
                         // UNSUBSCRIBE
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     11 => {
                         // UNSUBACK
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     12 => {
                         // PINGREQ
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     13 => {
                         // PINGRESP
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
                     }
                     14 => {
                         // FUCK OFF! (DISCONNECT)
+                        if has_first_packet_arrived {
+                            // Validation Logic Goes here, I think...
+                        } else {
+                            // DISCONNECT
+                            return;
+                        }
+                        return;
                     }
-
                     _ => {}
                 }
 
@@ -99,6 +195,8 @@ fn handle_connection(mut stream: TcpStream) {
                 return;
             }
         }
+
+        has_first_packet_arrived = true;
     }
 }
 
