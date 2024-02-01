@@ -38,12 +38,21 @@ fn handle_connection(mut stream: TcpStream) {
                     1 => {
                         // Connect
                         if !has_first_packet_arrived {
-                            let return_packet: [u8; 4] = control_packet::connect::validate(
-                                buffer,
-                                bytes_read
-                            );
-                            let _ = stream.write(&return_packet);
-                            let _ = stream.flush();
+                            match control_packet::connect::validate(buffer, bytes_read) {
+                                Ok(return_packet) => {
+                                    let _ = stream.write(&return_packet);
+                                    let _ = stream.flush();
+
+                                    if return_packet != [32, 2, 0, 0] {
+                                        println!("Connack not accepted {:?}", return_packet);
+                                        let _ = stream.shutdown(std::net::Shutdown::Both);
+                                    }
+                                }
+                                Err(err) => {
+                                    println!("An error has occured: {}", err);
+                                    let _ = stream.shutdown(std::net::Shutdown::Both);
+                                }
+                            }
                         } else {
                             // DISCONNECT
                             return;

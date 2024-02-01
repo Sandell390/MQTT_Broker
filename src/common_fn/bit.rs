@@ -1,5 +1,5 @@
 // Function to decode the Remaining Length field from a packet of bytes
-pub fn decode_remaining_length(mut bytes: &[u8]) -> Result<u32, &'static str> {
+pub fn decode_remaining_length(mut bytes: &[u8]) -> Result<usize, &'static str> {
     let mut multiplier: u32 = 1;
     let mut value: u32 = 0;
 
@@ -28,5 +28,5 @@ pub fn decode_remaining_length(mut bytes: &[u8]) -> Result<u32, &'static str> {
         }
     }
 
-    Ok(value)
+    Ok(value.try_into().unwrap())
 }
