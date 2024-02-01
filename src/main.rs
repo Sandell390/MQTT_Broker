@@ -2,6 +2,7 @@ use std::{ io::{ Read, Write }, net::{ SocketAddr, TcpListener, TcpStream }, thr
 use local_ip_address::local_ip;
 
 mod control_packet;
+mod common_fn;
 
 fn handle_connection(mut stream: TcpStream) {
     // Print client connection information

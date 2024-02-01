@@ -1,8 +1,17 @@
+use crate::common_fn;
+
 pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> [u8; 4] {
     println!("MQTT Connection is being validated");
 
     // Validate packet
 
+    // Example usage of the decode_remaining_length function with a packet of bytes
+    match common_fn::bit::decode_remaining_length(&buffer) {
+        Ok(value) => println!("Decoded Remaining Length: {}", value),
+        Err(err) => println!("Error: {}", err),
+    }
+
+    // let test = common_fn::bit::decode_remaining_length(&buffer);
     // Assemble return packet
 
     // Return newly assembled return packet
