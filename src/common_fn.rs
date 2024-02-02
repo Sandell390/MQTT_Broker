@@ -1,1 +1,1 @@
-pub mod bit;
+pub mod bit_operations;

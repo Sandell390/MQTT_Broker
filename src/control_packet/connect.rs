@@ -7,7 +7,7 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<[u8; 4], &'stat
 
     let mut remaining_length: usize = 0;
 
-    match common_fn::bit::decode_remaining_length(&buffer) {
+    match common_fn::bit_operations::decode_remaining_length(&buffer) {
         Ok(value) => {
             remaining_length = value;
         }
