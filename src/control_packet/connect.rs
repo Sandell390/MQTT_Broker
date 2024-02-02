@@ -19,12 +19,12 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<[u8; 4], &'stat
     let stop_at_index: usize = current_index + 6;
     let expected_protocol_length_and_name: [&str; 6] = ["0", "4", "M", "Q", "T", "T"];
     let mut protocol_length_and_name: [String; 6] = [
-        "".to_string(),
-        "".to_string(),
-        "".to_string(),
-        "".to_string(),
-        "".to_string(),
-        "".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
     ];
     let mut iterator: usize = 0;
 
@@ -34,12 +34,14 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<[u8; 4], &'stat
         if i < stop_at_index - 4 {
             protocol_length_and_name[iterator] = (buffer[i] as u8).to_string();
         } else {
-            protocol_length_and_name[iterator] = (buffer[i] as u8 as char).to_string();
+            protocol_length_and_name[iterator] = String::from(buffer[i] as u8 as char);
         }
 
         iterator += 1;
         current_index += 1;
     }
+
+    println!("{:?}", protocol_length_and_name);
 
     for i in 0..protocol_length_and_name.len() {
         if expected_protocol_length_and_name[i] != protocol_length_and_name[i] {
