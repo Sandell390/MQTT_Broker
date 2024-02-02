@@ -2,7 +2,7 @@ pub fn get_values(
     buffer: &[u8],
     mut current_index: usize,
     read_string_value: bool
-) -> Result<(usize, String), &'static str> {
+) -> Result<(usize, String, usize), &'static str> {
     let msb: usize = buffer[current_index] as usize;
     let lsb: usize = buffer[current_index + 1] as usize;
 
@@ -22,8 +22,8 @@ pub fn get_values(
             current_index += 1;
         }
 
-        return Ok((decimal_value, string_value));
+        return Ok((decimal_value, string_value, current_index));
     }
 
-    return Ok((decimal_value, String::new()));
+    return Ok((decimal_value, String::new(), current_index));
 }
