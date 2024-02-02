@@ -16,8 +16,7 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<[u8; 4], &'stat
 
     let mut has_valid_protocol_length_and_name = true;
     let mut current_index: usize = bytes_read - remaining_length;
-    let start_at_index: usize = bytes_read - remaining_length;
-    let stop_at_index: usize = start_at_index + 6;
+    let stop_at_index: usize = current_index + 6;
     let expected_protocol_length_and_name: [&str; 6] = ["0", "4", "M", "Q", "T", "T"];
     let mut protocol_length_and_name: [String; 6] = [
         "".to_string(),
@@ -31,7 +30,7 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<[u8; 4], &'stat
 
     // Get protocol length and name, and save in an array
     // stop_at_index == range (Number of bytes to read)
-    for i in start_at_index..stop_at_index {
+    for i in current_index..stop_at_index {
         if i < stop_at_index - 4 {
             protocol_length_and_name[iterator] = (buffer[i] as u8).to_string();
         } else {
@@ -52,7 +51,7 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<[u8; 4], &'stat
         return Err("Invalid protocol name");
     }
 
-    // Control protocol level
+    // Control protocol level should be 4 (3.1.1)
     if (buffer[current_index] as u8) != 4 {
         return Ok([32, 2, 0, 1]);
     }

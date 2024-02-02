@@ -54,16 +54,8 @@ fn handle_connection(mut stream: TcpStream) {
                                 }
                             }
                         } else {
-                            // DISCONNECT
-                            return;
-                        }
-                    }
-                    2 => {
-                        // CONNACK
-                        if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
-                        } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
@@ -72,7 +64,8 @@ fn handle_connection(mut stream: TcpStream) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
@@ -81,7 +74,8 @@ fn handle_connection(mut stream: TcpStream) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
@@ -90,7 +84,8 @@ fn handle_connection(mut stream: TcpStream) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
@@ -99,7 +94,8 @@ fn handle_connection(mut stream: TcpStream) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
@@ -108,7 +104,8 @@ fn handle_connection(mut stream: TcpStream) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
@@ -117,16 +114,8 @@ fn handle_connection(mut stream: TcpStream) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
-                            return;
-                        }
-                    }
-                    9 => {
-                        // SUBACK
-                        if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
-                        } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
@@ -135,16 +124,8 @@ fn handle_connection(mut stream: TcpStream) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
-                            return;
-                        }
-                    }
-                    11 => {
-                        // UNSUBACK
-                        if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
-                        } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
@@ -153,30 +134,27 @@ fn handle_connection(mut stream: TcpStream) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
-                            return;
-                        }
-                    }
-                    13 => {
-                        // PINGRESP
-                        if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
-                        } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                     }
                     14 => {
-                        // FUCK OFF! (DISCONNECT)
+                        // FUCK OFF! (Disconnect)
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                         } else {
-                            // DISCONNECT
+                            // Disconnect
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                             return;
                         }
                         return;
                     }
-                    _ => {}
+                    _ => {
+                        // Disconnect
+                        let _ = stream.shutdown(std::net::Shutdown::Both);
+                        return;
+                    }
                 }
 
                 // CONNECT
@@ -187,7 +165,7 @@ fn handle_connection(mut stream: TcpStream) {
 
                 // PING
 
-                // DISCONNECT
+                // Disconnect
             }
             Err(err) => {
                 // Print error if reading from the client fails
@@ -210,7 +188,7 @@ fn main() {
     );
 
     // Print a message indicating that the MQTT broker is listening
-    println!("MQTT broker listening on port 1883...");
+    println!("MQTT broker listening on {}:1883...", my_local_ip);
 
     for stream in listener.incoming() {
         match stream {
