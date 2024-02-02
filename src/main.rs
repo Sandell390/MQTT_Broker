@@ -28,16 +28,8 @@ fn handle_connection(mut stream: TcpStream) {
                     return;
                 }
 
-                // Extract first byte, for surgery
-                let first_byte: u8 = buffer[0];
-
-                // Convert byte to a 8-bit string
-                let bits_string: String = format!("{:08b}", first_byte);
-
-                // Split the bit_string in half & convert first 4 bits to decimal value
-                let packet_type: u8 = u8
-                    ::from_str_radix(bits_string.split_at(4).0, 2)
-                    .expect("Could not parse first string byte to u8");
+                // Convert first 4 bits to decimal value
+                let packet_type: u8 = common_fn::bit_operations::split_byte(&buffer[0], 4).expect("")[0];
 
                 // Match for incoming packets
                 match packet_type {
@@ -119,6 +111,37 @@ fn handle_connection(mut stream: TcpStream) {
                         // SUBSCRIBE
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
+                            match control_packet::subcribe::validate(buffer, bytes_read) {
+                                Ok(sub_packet) => {
+                                    
+                                    /* 
+                                    // Debug prints
+                                    println!("PacketID: {:?}", sub_packet.0);
+                                    for (topic_filter, qos) in &sub_packet.1 {
+                                        println!("{topic_filter:?} {qos}");
+                                    }
+                                    */
+                                    // Convert Hashmap vaules to Vec u8
+                                    let values: Vec<u8> = sub_packet.1.values().cloned().collect();
+                                    // Assembles the return and sends it
+                                    match control_packet::subcribe::assemble_suback_packet(values.as_slice(), &sub_packet.0){
+                                        Ok(return_packet_vec) => {
+                                            // Convert the byte vector into a byte slice
+                                            let suback_buffer: &[u8] = return_packet_vec.as_slice();
+
+                                            // Sends to the client
+                                            let _ = stream.write(suback_buffer);
+                                        }
+                                        Err(_) => println!("Error")
+                                    }
+                                }
+                                Err(err) => {
+                                    println!("An error has occured: {}", err);
+                                    let _ = stream.shutdown(std::net::Shutdown::Both);
+                                }
+                            }
+
+
                         } else {
                             // Disconnect
                             let _ = stream.shutdown(std::net::Shutdown::Both);
