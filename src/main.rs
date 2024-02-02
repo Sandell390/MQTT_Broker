@@ -1,6 +1,7 @@
 use std::thread;
 use std::collections::HashSet;
 use std::io::{ Read, Write };
+use std::sync::{ Arc, Mutex };
 use std::net::{ SocketAddr, TcpListener, TcpStream };
 use local_ip_address::local_ip;
 
@@ -10,7 +11,38 @@ mod control_packet;
 mod common_fn;
 mod models;
 
-fn handle_connection(mut stream: TcpStream) {
+fn main() {
+    // Fetch current ip
+    let my_local_ip = local_ip().unwrap();
+
+    // Create an Arc<Mutex<HashSet<Client>>> to store clients
+    let clients: Arc<Mutex<HashSet<Client>>> = Arc::new(Mutex::new(HashSet::new()));
+
+    // Create a TCP listener bound to port 1883 (the default MQTT port)
+    let listener = TcpListener::bind(SocketAddr::new(my_local_ip, 1883)).expect(
+        "Failed to bind to port 1883"
+    );
+
+    // Print a message indicating that the MQTT broker is listening
+    println!("MQTT broker listening on {}:1883...", my_local_ip);
+
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                let clients_clone = Arc::clone(&clients);
+                thread::spawn(move || {
+                    handle_connection(stream, clients_clone);
+                });
+            }
+            Err(err) => {
+                // Print error if accepting a client connection fails
+                println!("Error accepting client connection: {:?}", err);
+            }
+        }
+    }
+}
+
+fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>) {
     // Print client connection information
     println!("Client connected: {:?}", stream.peer_addr().unwrap());
 
@@ -45,13 +77,51 @@ fn handle_connection(mut stream: TcpStream) {
                         // Connect
                         if !has_first_packet_arrived {
                             match control_packet::connect::validate(buffer, bytes_read) {
-                                Ok(return_packet) => {
-                                    let _ = stream.write(&return_packet);
+                                Ok(response) => {
+                                    let _ = stream.write(&response.return_packet);
                                     let _ = stream.flush();
 
-                                    if return_packet != [32, 2, 0, 0] {
-                                        println!("Connack not accepted {:?}", return_packet);
+                                    if
+                                        response.return_packet != [32, 2, 0, 0] &&
+                                        response.return_packet != [32, 2, 1, 0]
+                                    {
+                                        println!(
+                                            "Connack not accepted {:?}",
+                                            response.return_packet
+                                        );
                                         let _ = stream.shutdown(std::net::Shutdown::Both);
+                                        return;
+                                    }
+
+                                    // Acquire a lock on the mutex guarding the clients HashSet
+                                    let mut clients_guard = clients.lock().unwrap();
+                                    let client: Client = response.client;
+
+                                    // Check if a client with the same client_id already exists
+                                    if
+                                        clients_guard
+                                            .iter()
+                                            .any(
+                                                |internal_client|
+                                                    internal_client.client_id == client.client_id
+                                            )
+                                    {
+                                        // Client with the same client_id already exists
+                                        println!(
+                                            "Client with ID '{}' already exists.",
+                                            client.client_id
+                                        );
+
+                                        return; // Exit the function without adding the client
+                                    }
+
+                                    // Insert the new client into the clients HashSet
+                                    clients_guard.insert(client);
+
+                                    // Iterate over all clients in the clients HashSet
+                                    for client in clients_guard.iter() {
+                                        // Access client properties or perform operations
+                                        println!("Client ID: {}", client.client_id);
                                     }
                                 }
                                 Err(err) => {
@@ -162,16 +232,6 @@ fn handle_connection(mut stream: TcpStream) {
                         return;
                     }
                 }
-
-                // CONNECT
-
-                // SUBCRIBE
-
-                // PUBLISH
-
-                // PING
-
-                // Disconnect
             }
             Err(err) => {
                 // Print error if reading from the client fails
@@ -181,45 +241,5 @@ fn handle_connection(mut stream: TcpStream) {
         }
 
         has_first_packet_arrived = true;
-    }
-}
-
-fn main() {
-    // Fetch current ip
-    let my_local_ip = local_ip().unwrap();
-
-    // Create a HashSet to store clients
-    let mut clients: HashSet<Client> = HashSet::new();
-    /*
-        let client_addr = "127.0.0.1:1234".to_string();
-
-        if !client_states.contains(&client_addr) {
-            client_states.insert(client_addr.clone());
-            println!("New client state inserted for {}", client_addr);
-        } else {
-            println!("Client state already exists for {}", client_addr);
-        }
-    */
-
-    // Create a TCP listener bound to port 1883 (the default MQTT port)
-    let listener = TcpListener::bind(SocketAddr::new(my_local_ip, 1883)).expect(
-        "Failed to bind to port 1883"
-    );
-
-    // Print a message indicating that the MQTT broker is listening
-    println!("MQTT broker listening on {}:1883...", my_local_ip);
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                thread::spawn(move || {
-                    handle_connection(stream);
-                });
-            }
-            Err(err) => {
-                // Print error if accepting a client connection fails
-                println!("Error accepting client connection: {:?}", err);
-            }
-        }
     }
 }
