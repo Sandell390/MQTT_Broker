@@ -22,16 +22,8 @@ fn handle_connection(mut stream: TcpStream) {
                     return;
                 }
 
-                // Extract first byte, for surgery
-                let first_byte: u8 = buffer[0];
-
-                // Convert byte to a 8-bit string
-                let bits_string: String = format!("{:08b}", first_byte);
-
-                // Split the bit_string in half & convert first 4 bits to decimal value
-                let packet_type: u8 = u8
-                    ::from_str_radix(bits_string.split_at(4).0, 2)
-                    .expect("Could not parse first string byte to u8");
+                // Convert first 4 bits to decimal value
+                let packet_type: u8 = common_fn::bit_operations::split_byte(&buffer[0], 4).expect("")[0];
 
                 // Match for incoming packets
                 match packet_type {
