@@ -57,7 +57,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                 // Check if the client has suddenly disconnected
                 if bytes_read == 0 {
                     println!("Client disconnected: {:?}", stream.peer_addr().unwrap());
-                    return;
+                    break;
                 }
 
                 // Extract first byte, for surgery
@@ -78,9 +78,6 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                         if !has_first_packet_arrived {
                             match control_packet::connect::validate(buffer, bytes_read) {
                                 Ok(response) => {
-                                    let _ = stream.write(&response.return_packet);
-                                    let _ = stream.flush();
-
                                     if
                                         response.return_packet != [32, 2, 0, 0] &&
                                         response.return_packet != [32, 2, 1, 0]
@@ -89,8 +86,9 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                             "Connack not accepted {:?}",
                                             response.return_packet
                                         );
+
                                         let _ = stream.shutdown(std::net::Shutdown::Both);
-                                        return;
+                                        break;
                                     }
 
                                     // Acquire a lock on the mutex guarding the clients HashSet
@@ -112,17 +110,26 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                             client.client_id
                                         );
 
-                                        return; // Exit the function without adding the client
+                                        let _ = stream.write(&[32, 2, 0, 2]); // Reject Identifier
+                                        let _ = stream.flush();
+
+                                        break; // Exit the function without adding the client
                                     }
 
                                     // Insert the new client into the clients HashSet
                                     clients_guard.insert(client);
 
+                                    // Create a Vec to temporarily store clients
+                                    let clients_vec: Vec<&Client> = clients_guard.iter().collect();
+
                                     // Iterate over all clients in the clients HashSet
-                                    for client in clients_guard.iter() {
+                                    for client in clients_vec {
                                         // Access client properties or perform operations
                                         println!("Client ID: {}", client.client_id);
                                     }
+
+                                    let _ = stream.write(&response.return_packet);
+                                    let _ = stream.flush();
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -219,24 +226,27 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                         // FUCK OFF! (Disconnect)
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
                         } else {
                             // Disconnect
                             let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
                         }
-                        return;
+
+                        println!("Client disconnected: {:?}", stream.peer_addr().unwrap());
+
+                        break;
                     }
                     _ => {
                         // Disconnect
                         let _ = stream.shutdown(std::net::Shutdown::Both);
-                        return;
+                        break;
                     }
                 }
             }
             Err(err) => {
                 // Print error if reading from the client fails
                 println!("Error reading from client: {:?}", err);
-                return;
+                break;
             }
         }
 
