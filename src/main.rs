@@ -5,6 +5,7 @@ use local_ip_address::local_ip;
 
 mod control_packet;
 mod common_fn;
+mod models;
 
 fn handle_connection(mut stream: TcpStream) {
     // Print client connection information
