@@ -2,14 +2,27 @@ use std::collections::HashSet;
 
 pub struct Client {
     client_id: String,
+    will_topic: String,
+    will_message: String,
+    clean_session: bool,
+    connection_state: bool,
     subscriptions: HashSet<String>,
 }
 
 impl Client {
     // Constructor for creating a new client session
-    fn new(client_id: String) -> Client {
+    fn new(
+        client_id: String,
+        will_topic: String,
+        will_message: String,
+        clean_session: bool
+    ) -> Client {
         Client {
             client_id,
+            will_topic,
+            will_message,
+            clean_session,
+            connection_state: true,
             subscriptions: HashSet::new(),
             // Initialize other session-related fields
         }

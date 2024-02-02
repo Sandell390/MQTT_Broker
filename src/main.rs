@@ -1,7 +1,10 @@
 use std::thread;
+use std::collections::HashSet;
 use std::io::{ Read, Write };
 use std::net::{ SocketAddr, TcpListener, TcpStream };
 use local_ip_address::local_ip;
+
+use crate::models::client::Client;
 
 mod control_packet;
 mod common_fn;
@@ -184,6 +187,19 @@ fn handle_connection(mut stream: TcpStream) {
 fn main() {
     // Fetch current ip
     let my_local_ip = local_ip().unwrap();
+
+    // Create a HashSet to store clients
+    let mut clients: HashSet<Client> = HashSet::new();
+    /*
+        let client_addr = "127.0.0.1:1234".to_string();
+
+        if !client_states.contains(&client_addr) {
+            client_states.insert(client_addr.clone());
+            println!("New client state inserted for {}", client_addr);
+        } else {
+            println!("Client state already exists for {}", client_addr);
+        }
+    */
 
     // Create a TCP listener bound to port 1883 (the default MQTT port)
     let listener = TcpListener::bind(SocketAddr::new(my_local_ip, 1883)).expect(
