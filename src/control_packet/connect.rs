@@ -240,8 +240,6 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'sta
 
     let connack_packet: [u8; 4] = [32, 2, session_present_byte, connect_return_code];
 
-    println!("{:?}", client);
-
     // Return newly assembled return packet
     return Ok(Response { return_packet: connack_packet, client });
 }

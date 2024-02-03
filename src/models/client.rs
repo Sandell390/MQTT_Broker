@@ -8,7 +8,7 @@ pub struct Client {
     pub client_id: String,
     pub will_topic: String,
     pub will_message: String,
-    pub connection_state: bool,
+    pub is_connected: bool,
     pub subscriptions: HashSet<String>,
     pub keep_alive: usize,
     pub username: String,
@@ -25,7 +25,7 @@ impl PartialEq for Client {
         self.client_id == other.client_id &&
             self.will_topic == other.will_topic &&
             self.will_message == other.will_message &&
-            self.connection_state == other.connection_state &&
+            self.is_connected == other.is_connected &&
             self.subscriptions == other.subscriptions &&
             self.keep_alive == other.keep_alive &&
             self.username == other.username &&
@@ -40,7 +40,7 @@ impl Hash for Client {
         self.client_id.hash(state);
         self.will_topic.hash(state);
         self.will_message.hash(state);
-        self.connection_state.hash(state);
+        self.is_connected.hash(state);
 
         // Use hash_combine for sets (HashSet)
         for subscription in &self.subscriptions {
@@ -69,7 +69,7 @@ impl Client {
             client_id,
             will_topic,
             will_message,
-            connection_state: true,
+            is_connected: true,
             subscriptions: HashSet::new(),
             keep_alive,
             username,
@@ -78,48 +78,47 @@ impl Client {
         }
     }
 
-    // Constructor for an empty client
-    pub fn empty() -> Client {
-        Client {
-            client_id: String::new(),
-            will_topic: String::new(),
-            will_message: String::new(),
-            connection_state: true,
-            subscriptions: HashSet::new(),
-            keep_alive: 0,
-            username: String::new(),
-            password: String::new(),
-            flags: ConnectFlags::new(false, false, 0, false, false, false),
-        }
-    }
+    // // Method for adding a subscription
+    // pub fn add_subscription(&mut self, topic_filter: &str) {
+    //     // Implement code for handling a new subscription, and putting it into the client's subscription list
+    //     self.subscriptions.insert(topic_filter.to_string());
+    // }
 
-    // Method for adding a subscription
-    pub fn add_subscription(&mut self, topic_filter: &str) {
-        // Implement code for handling a new subscription, and putting it into the client's subscription list
-        self.subscriptions.insert(topic_filter.to_string());
-    }
+    // // Method for removing a subscription
+    // pub fn remove_subscription(&mut self, topic_filter: &str) {
+    //     // Implement code for removing a subscription from the client's subscription list
+    //     self.subscriptions.remove(topic_filter);
+    // }
 
-    // Method for removing a subscription
-    pub fn remove_subscription(&mut self, topic_filter: &str) {
-        // Implement code for removing a subscription from the client's subscription list
-        self.subscriptions.remove(topic_filter);
-    }
+    // // Method for handling will topic to publish on when the client disconnects
+    // pub fn handle_will_topic(&self, topic: &str, payload: &[u8]) {
+    //     // Implement will topic handling here
+    //     println!("Received message on topic '{}': {:?}", topic, payload);
+    // }
 
-    // Method for handling will topic to publish on when the client disconnects
-    pub fn handle_will_topic(&self, topic: &str, payload: &[u8]) {
-        // Implement will topic handling here
-        println!("Received message on topic '{}': {:?}", topic, payload);
-    }
+    // // Method for handling a will message to be published when the client disconnects
+    // pub fn handle_will_message(&self, message: &str, payload: &[u8]) {
+    //     // Implement will message handling here
+    //     println!("Received message on topic '{}': {:?}", message, payload);
+    // }
 
-    // Method for handling a will message to be published when the client disconnects
-    pub fn handle_will_message(&self, message: &str, payload: &[u8]) {
-        // Implement will message handling here
-        println!("Received message on topic '{}': {:?}", message, payload);
-    }
+    // // Method for handling client connection
+    // pub fn handle_connect(mut self) -> Self {
+    //     println!("Client '{}' connected", self.client_id);
 
-    // Method for handling client disconnection
-    pub fn handle_disconnect(&self) {
-        // Implement disconnection handling logic here
-        println!("Client '{}' disconnected", self.client_id);
-    }
+    //     // Update is_connected, to reflect connection state
+    //     self.is_connected = true;
+
+    //     return self;
+    // }
+
+    // // Method for handling client disconnection
+    // pub fn handle_disconnect(mut self) -> Self {
+    //     println!("Client '{}' disconnected", self.client_id);
+
+    //     // Update is_connected, to reflect connection state
+    //     self.is_connected = false;
+
+    //     return self;
+    // }
 }

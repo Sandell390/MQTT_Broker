@@ -96,13 +96,15 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                             .iter()
                                             .any(
                                                 |internal_client|
-                                                    internal_client.client_id == client.client_id
+                                                    internal_client.client_id == client.client_id &&
+                                                    internal_client.is_connected ==
+                                                        client.is_connected
                                             )
                                     {
-                                        // Client with the same client_id already exists
+                                        // Client with the same client_id already exists, and is already connected
                                         println!(
-                                            "Client with ID '{}' already exists.",
-                                            client.client_id
+                                            "Client: {:?} already exists & is already connected.",
+                                            client
                                         );
 
                                         let _ = stream.write(&[32, 2, 0, 2]); // Reject Identifier
@@ -111,8 +113,9 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                         break; // Exit the function without adding the client
                                     }
 
-                                    // Insert the new client into the clients HashSet
-                                    clients_guard.insert(client);
+                                    // Insert/Update the client within the clients HashSet
+                                    // 'Adds a value to the set, replacing the existing value, if any, that is equal to the given one.'
+                                    clients_guard.replace(client);
 
                                     // Create a Vec to temporarily store clients
                                     let clients_vec: Vec<&Client> = clients_guard.iter().collect();
@@ -120,7 +123,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                     // Iterate over all clients in the clients HashSet
                                     for client in clients_vec {
                                         // Access client properties or perform operations
-                                        println!("Client ID: {}", client.client_id);
+                                        println!("Client: {:?}", client);
                                     }
 
                                     let _ = stream.write(&response.return_packet);
