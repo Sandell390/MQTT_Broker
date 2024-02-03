@@ -9,7 +9,7 @@ pub struct Response {
 
 pub fn validate(
     buffer: [u8; 8192],
-    bytes_read: usize,
+    packet_length: usize,
     socket_addr: SocketAddr
 ) -> Result<Response, &'static str> {
     println!("MQTT Connection is being validated");
@@ -26,7 +26,7 @@ pub fn validate(
     }
 
     let mut has_valid_protocol_length_and_name = true;
-    let mut current_index: usize = bytes_read - remaining_length;
+    let mut current_index: usize = packet_length - remaining_length;
 
     // Control protocol length & name
     match common_fn::msb_lsb_reader::get_values(&buffer, current_index, true) {

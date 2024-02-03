@@ -58,9 +58,9 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
         let mut buffer: [u8; 8192] = [0; 8192];
 
         match stream.read(&mut buffer) {
-            Ok(bytes_read) => {
+            Ok(packet_length) => {
                 // Check if the client has suddenly disconnected
-                if bytes_read == 0 {
+                if packet_length == 0 {
                     break;
                 }
 
@@ -75,7 +75,11 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                         // Connect
                         if !has_first_packet_arrived {
                             match
-                                control_packet::connect::validate(buffer, bytes_read, socket_addr)
+                                control_packet::connect::validate(
+                                    buffer,
+                                    packet_length,
+                                    socket_addr
+                                )
                             {
                                 Ok(response) => {
                                     if
@@ -111,8 +115,16 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                             break; // Exit the loop without adding the client to the list
                                         } else {
                                             // Update the existing client to be connected
+                                            existing_client.will_topic = new_client.will_topic;
+                                            existing_client.will_message = new_client.will_message;
                                             existing_client.is_connected = true;
+                                            existing_client.subscriptions =
+                                                new_client.subscriptions;
+                                            existing_client.keep_alive = new_client.keep_alive;
+                                            existing_client.username = new_client.username;
+                                            existing_client.password = new_client.password;
                                             existing_client.socket_addr = socket_addr;
+                                            existing_client.flags = new_client.flags;
                                         }
                                     } else {
                                         // Add the new client to the list
@@ -125,6 +137,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                     let _ = stream.flush();
 
                                     // Print information for each client
+                                    println!("Client List:");
                                     for client in clients.iter() {
                                         println!("Client: {:?}", client);
                                     }
@@ -188,7 +201,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                         // SUBSCRIBE
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
-                            match control_packet::subcribe::validate(buffer, bytes_read) {
+                            match control_packet::subcribe::validate(buffer, packet_length) {
                                 Ok(sub_packet) => {
                                     /* 
                                     // Debug prints
@@ -250,44 +263,24 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                             // Access the clients vector within the mutex
                             let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
-                            if
-                                let Some(index) = clients
-                                    .iter()
-                                    .position(|c: &Client| c.socket_addr == socket_addr)
-                            {
-                                // Extract the client from the list
-                                let mut client: Client = clients.remove(index);
-
-                                // Call handle_disconnect on the client
-                                client.handle_disconnect();
-
-                                // Re-add the updated client to the list
-                                clients.push(client);
-
-                                println!("Client found and updated.");
-                            } else {
-                                println!("Client not found.");
+                            // Validate reserved bits are not set
+                            match control_packet::disconnect::validate(buffer, packet_length) {
+                                Ok(_response) => {
+                                    disconnect_client_by_socket_addr(
+                                        &mut clients,
+                                        socket_addr,
+                                        true
+                                    );
+                                }
+                                Err(_err) => {
+                                    disconnect_client_by_socket_addr(
+                                        &mut clients,
+                                        socket_addr,
+                                        true
+                                    );
+                                }
                             }
 
-                            // Print information for each client
-                            for client in clients.iter() {
-                                println!("Client: {:?}", client);
-                            }
-
-                            // match
-                            //     control_packet::disconnect::validate(
-                            //         buffer,
-                            //         bytes_read,
-                            //         socket_addr
-                            //     )
-                            // {
-                            //     Ok(Response) => {
-                            //         // Code here
-                            //     }
-                            //     Err(err) => {
-                            //         println!("{}", err);
-                            //     }
-                            // }
                             break;
                         } else {
                             // Disconnect
@@ -313,11 +306,45 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
     // Access the clients vector within the mutex
     let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
-    // TO-DO: Instead of removing the client, update the is_connected flag to false, that way we still retain state
-    remove_client(&mut clients, &socket_addr);
+    disconnect_client_by_socket_addr(&mut clients, socket_addr, false);
 
     println!("Client disconnected: {}", socket_addr);
+
+    // Print information for each client
+    println!("Client List:");
+    for client in clients.iter() {
+        println!("Client: {:?}", client);
+    }
+
     let _ = stream.shutdown(std::net::Shutdown::Both);
+}
+
+fn disconnect_client_by_socket_addr(
+    clients: &mut Vec<Client>,
+    socket_addr: SocketAddr,
+    discard_will_msg: bool
+) {
+    if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr) {
+        // Extract the client from the list
+        let mut client: Client = clients.remove(index);
+
+        // Call handle_disconnect on the client
+        client.handle_disconnect();
+
+        // Update the client's socket_addr
+        client.socket_addr = socket_addr;
+
+        if discard_will_msg {
+            client.will_message = String::new();
+        }
+
+        // Re-add the updated client to the list
+        clients.push(client);
+
+        println!("Client found and updated.");
+    } else {
+        println!("Client not found.");
+    }
 }
 
 fn remove_client(clients: &mut MutexGuard<Vec<Client>>, socket_addr: &SocketAddr) {

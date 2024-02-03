@@ -1,11 +1,32 @@
-use crate::models::client::Client;
+use crate::common_fn;
 
-pub struct Response {
-    pub return_packet: [u8; 4],
-    pub client: Client,
+pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<&'static str, &'static str> {
+    println!("MQTT Disconnection is being validated");
+
+    let mut remaining_length: usize = 0;
+
+    match common_fn::bit_operations::decode_remaining_length(&buffer) {
+        Ok(value) => {
+            remaining_length = value;
+        }
+        Err(err) => println!("Error: {}", err),
+    }
+
+    let current_index: usize = packet_length - remaining_length;
+
+    // Reserved bits MUST be 0
+    let mut is_reserved_bits_set: bool = false;
+
+    if buffer[current_index] != 0 {
+        is_reserved_bits_set = true;
+    }
+
+    match is_reserved_bits_set {
+        true => {
+            return Err("Reserved bits are set");
+        }
+        false => {
+            return Ok("Reserved bits not set");
+        }
+    }
 }
-
-// pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'static str> {
-//     // Code goes here
-//     return Ok(Response { return_packet: [1, 2, 3, 4], client });
-// }
