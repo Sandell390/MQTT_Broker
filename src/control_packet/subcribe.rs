@@ -36,13 +36,6 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
     let mut packet_id: u16 = 0;
 
     // Get Packet ID
-    /* 
-    packet_id[0] = buffer[current_index];
-    current_index += 1;
-    packet_id[1] = buffer[current_index];
-    current_index += 1;
-    */
-    
     match common_fn::msb_lsb_reader::get_values(&buffer, current_index, false) {
         Ok(response) => {
             // Match conditions
@@ -60,6 +53,7 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
     // Holds the toptic filters and the associated QoS 
     let mut topic_qos_pair: Vec<Topfilter>= Vec::new();
 
+    // Only to hold the qos so it can be used to suback packet
     let mut qos_vec: Vec<u8> = Vec::new();
 
     // Get all topic filters
@@ -68,8 +62,6 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
         // Find topic filter
         match common_fn::msb_lsb_reader::get_values(&buffer, current_index, true) {
             Ok(response) => {
-               
-                //println!("Topic: {}", response.1);
 
                 // Puts the current index to after read string
                 current_index = response.2;
@@ -78,7 +70,7 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
                 match common_fn::bit_operations::split_byte(&buffer[current_index], 6) {
                     Ok(splited_byte) => {
             
-                        // Inserts both topic filter and QoS into the hashmap
+                        // Inserts both topic filter and QoS into the Vector
                         topic_qos_pair.push(Topfilter { topic_name: response.1, qos: splited_byte[1]});
                         qos_vec.push(splited_byte[1]);
                         current_index += 1;
@@ -92,6 +84,7 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
         }
     }
 
+    // Makes the suback_packet
     let suback_packet: Vec<u8> = assemble_suback_packet(qos_vec.as_slice(), u16::to_be_bytes(packet_id))?;
 
     return Ok(SubInfo{
