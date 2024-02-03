@@ -265,11 +265,6 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                 Ok(sub_packet) => {
                                 
                                     let _ = stream.write(sub_packet.suback_packet.as_slice());
-                                    // Debug prints
-                                    println!("PacketID: {:?}", sub_packet.0);
-                                    for (topic_filter, qos) in &sub_packet.1 {
-                                        println!("{topic_filter:?} {qos}");
-                                    }
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
