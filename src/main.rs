@@ -43,8 +43,10 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>) {
+    let client_addr: SocketAddr = stream.peer_addr().unwrap();
+
     // Print client connection information
-    println!("Client connected: {:?}", stream.peer_addr().unwrap());
+    println!("Client connected: {}", client_addr);
 
     let mut has_first_packet_arrived: bool = false;
 
@@ -56,12 +58,13 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
             Ok(bytes_read) => {
                 // Check if the client has suddenly disconnected
                 if bytes_read == 0 {
-                    println!("Client disconnected: {:?}", stream.peer_addr().unwrap());
                     break;
                 }
 
                 // Convert first 4 bits to decimal value
-                let packet_type: u8 = common_fn::bit_operations::split_byte(&buffer[0], 4).expect("")[0];
+                let packet_type: u8 = common_fn::bit_operations
+                    ::split_byte(&buffer[0], 4)
+                    .expect("")[0];
 
                 // Match for incoming packets
                 match packet_type {
@@ -125,13 +128,12 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
-                                    let _ = stream.shutdown(std::net::Shutdown::Both);
+                                    break;
                                 }
                             }
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     3 => {
@@ -140,8 +142,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     4 => {
@@ -150,8 +151,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     5 => {
@@ -160,8 +160,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     6 => {
@@ -170,8 +169,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     7 => {
@@ -180,8 +178,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     8 => {
@@ -190,7 +187,6 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                             match control_packet::subcribe::validate(buffer, bytes_read) {
                                 Ok(sub_packet) => {
-                                    
                                     /* 
                                     // Debug prints
                                     println!("PacketID: {:?}", sub_packet.0);
@@ -201,7 +197,12 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                     // Convert Hashmap vaules to Vec u8
                                     let values: Vec<u8> = sub_packet.1.values().cloned().collect();
                                     // Assembles the return and sends it
-                                    match control_packet::subcribe::assemble_suback_packet(values.as_slice(), &sub_packet.0){
+                                    match
+                                        control_packet::subcribe::assemble_suback_packet(
+                                            values.as_slice(),
+                                            &sub_packet.0
+                                        )
+                                    {
                                         Ok(return_packet_vec) => {
                                             // Convert the byte vector into a byte slice
                                             let suback_buffer: &[u8] = return_packet_vec.as_slice();
@@ -209,20 +210,17 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                             // Sends to the client
                                             let _ = stream.write(suback_buffer);
                                         }
-                                        Err(_) => println!("Error")
+                                        Err(_) => println!("Error"),
                                     }
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
-                                    let _ = stream.shutdown(std::net::Shutdown::Both);
+                                    break;
                                 }
                             }
-
-
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     10 => {
@@ -231,8 +229,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     12 => {
@@ -241,38 +238,35 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return;
+                            break;
                         }
                     }
                     14 => {
                         // FUCK OFF! (Disconnect)
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
+                            break;
                         } else {
                             // Disconnect
-                            let _ = stream.shutdown(std::net::Shutdown::Both);
+                            break;
                         }
-
-                        println!("Client disconnected: {:?}", stream.peer_addr().unwrap());
-
-                        break;
                     }
                     _ => {
                         // Disconnect
-                        let _ = stream.shutdown(std::net::Shutdown::Both);
                         break;
                     }
                 }
             }
             Err(err) => {
                 // Print error if reading from the client fails
-                println!("Error reading from client: {:?}", err);
+                println!("Error reading from client: {:?}\nClosing the Stream", err);
                 break;
             }
         }
 
         has_first_packet_arrived = true;
     }
+
+    println!("Client disconnected: {}", client_addr);
+    let _ = stream.shutdown(std::net::Shutdown::Both);
 }
