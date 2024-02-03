@@ -218,8 +218,6 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'sta
         match common_fn::msb_lsb_reader::get_values(&buffer, current_index, true) {
             Ok(response) => {
                 password = response.1;
-
-                current_index = response.2;
             }
             Err(err) => {
                 println!("{}", err);
@@ -238,7 +236,7 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'sta
     );
 
     // Assemble return packet
-    let mut session_present_byte: u8 = 0;
+    let session_present_byte: u8 = 0;
 
     let connack_packet: [u8; 4] = [32, 2, session_present_byte, connect_return_code];
 
