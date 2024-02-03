@@ -13,7 +13,7 @@ impl SubInfo {
     }
 }
 
-pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<SubInfo, &'static str>{
+pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str>{
 
 
     let mut remaining_length: usize = 0;
@@ -30,7 +30,7 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<SubInfo, &'stat
         return Err("Subscribe Packet does not have the required lenght");
     }
 
-    let mut current_index: usize = bytes_read - remaining_length;
+    let mut current_index: usize = packet_length - remaining_length;
 
 
     // Test if the first byte have bit 1 is on
