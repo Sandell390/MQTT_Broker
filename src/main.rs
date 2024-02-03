@@ -190,26 +190,12 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                             // Validation Logic Goes here, I think...
                             match control_packet::subcribe::validate(buffer, bytes_read) {
                                 Ok(sub_packet) => {
-                                    
-                                    /* 
+                                
+                                    let _ = stream.write(sub_packet.suback_packet.as_slice());
                                     // Debug prints
                                     println!("PacketID: {:?}", sub_packet.0);
                                     for (topic_filter, qos) in &sub_packet.1 {
                                         println!("{topic_filter:?} {qos}");
-                                    }
-                                    */
-                                    // Convert Hashmap vaules to Vec u8
-                                    let values: Vec<u8> = sub_packet.1.values().cloned().collect();
-                                    // Assembles the return and sends it
-                                    match control_packet::subcribe::assemble_suback_packet(values.as_slice(), &sub_packet.0){
-                                        Ok(return_packet_vec) => {
-                                            // Convert the byte vector into a byte slice
-                                            let suback_buffer: &[u8] = return_packet_vec.as_slice();
-
-                                            // Sends to the client
-                                            let _ = stream.write(suback_buffer);
-                                        }
-                                        Err(_) => println!("Error")
                                     }
                                 }
                                 Err(err) => {
