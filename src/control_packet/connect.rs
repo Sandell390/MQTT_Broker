@@ -245,5 +245,5 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'sta
     println!("{:?}", client);
 
     // Return newly assembled return packet
-    return Ok(Response { return_packet: connack_packet, client: client });
+    return Ok(Response { return_packet: connack_packet, client });
 }
