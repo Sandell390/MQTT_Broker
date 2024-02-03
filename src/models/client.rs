@@ -1,11 +1,12 @@
 use std::collections::HashSet;
 use std::hash::{ Hash, Hasher };
+use std::net::SocketAddr;
 
 use super::flags::ConnectFlags;
 
 #[derive(Debug)]
 pub struct Client {
-    pub client_id: String,
+    pub id: String,
     pub will_topic: String,
     pub will_message: String,
     pub is_connected: bool,
@@ -13,6 +14,7 @@ pub struct Client {
     pub keep_alive: usize,
     pub username: String,
     pub password: String,
+    pub socket_addr: SocketAddr,
     pub flags: ConnectFlags,
 }
 
@@ -22,7 +24,7 @@ impl Eq for Client {}
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
         // Implement PartialEq based on field comparisons
-        self.client_id == other.client_id &&
+        self.id == other.id &&
             self.will_topic == other.will_topic &&
             self.will_message == other.will_message &&
             self.is_connected == other.is_connected &&
@@ -30,6 +32,7 @@ impl PartialEq for Client {
             self.keep_alive == other.keep_alive &&
             self.username == other.username &&
             self.password == other.password &&
+            self.socket_addr == other.socket_addr &&
             self.flags == other.flags
     }
 }
@@ -37,7 +40,7 @@ impl PartialEq for Client {
 impl Hash for Client {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // Combine hashes of all fields
-        self.client_id.hash(state);
+        self.id.hash(state);
         self.will_topic.hash(state);
         self.will_message.hash(state);
         self.is_connected.hash(state);
@@ -50,6 +53,7 @@ impl Hash for Client {
         self.keep_alive.hash(state);
         self.username.hash(state);
         self.password.hash(state);
+        self.socket_addr.hash(state);
         self.flags.hash(state);
     }
 }
@@ -63,10 +67,11 @@ impl Client {
         keep_alive: usize,
         username: String,
         password: String,
+        socket_addr: SocketAddr,
         flags: ConnectFlags
     ) -> Client {
         Client {
-            client_id,
+            id: client_id,
             will_topic,
             will_message,
             is_connected: true,
@@ -74,6 +79,7 @@ impl Client {
             keep_alive,
             username,
             password,
+            socket_addr,
             flags,
         }
     }

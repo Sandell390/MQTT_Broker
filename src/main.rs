@@ -43,10 +43,10 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>) {
-    let client_addr: SocketAddr = stream.peer_addr().unwrap();
+    let socket_addr: SocketAddr = stream.peer_addr().unwrap();
 
     // Print client connection information
-    println!("Client connected: {}", client_addr);
+    println!("Client connected: {}", socket_addr);
 
     let mut has_first_packet_arrived: bool = false;
 
@@ -71,7 +71,9 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                     1 => {
                         // Connect
                         if !has_first_packet_arrived {
-                            match control_packet::connect::validate(buffer, bytes_read) {
+                            match
+                                control_packet::connect::validate(buffer, bytes_read, socket_addr)
+                            {
                                 Ok(response) => {
                                     if
                                         response.return_packet != [32, 2, 0, 0] &&
@@ -96,7 +98,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
                                             .iter()
                                             .any(
                                                 |internal_client|
-                                                    internal_client.client_id == client.client_id &&
+                                                    internal_client.id == client.id &&
                                                     internal_client.is_connected ==
                                                         client.is_connected
                                             )
@@ -270,6 +272,6 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<HashSet<Client>>>
         has_first_packet_arrived = true;
     }
 
-    println!("Client disconnected: {}", client_addr);
+    println!("Client disconnected: {}", socket_addr);
     let _ = stream.shutdown(std::net::Shutdown::Both);
 }

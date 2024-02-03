@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
 pub struct Response {
@@ -5,7 +7,11 @@ pub struct Response {
     pub client: Client,
 }
 
-pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'static str> {
+pub fn validate(
+    buffer: [u8; 8192],
+    bytes_read: usize,
+    socket_addr: SocketAddr
+) -> Result<Response, &'static str> {
     println!("MQTT Connection is being validated");
 
     // Validate packet
@@ -232,6 +238,7 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'sta
         keep_alive,
         username,
         password,
+        socket_addr,
         connect_flags
     );
 
