@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{ net::SocketAddr, time::Instant };
 
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
@@ -239,7 +239,8 @@ pub fn validate(
         username,
         password,
         socket_addr,
-        connect_flags
+        connect_flags,
+        Some(Instant::now())
     );
 
     // Assemble return packet

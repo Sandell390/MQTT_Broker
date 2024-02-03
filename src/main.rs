@@ -2,6 +2,7 @@ use std::thread;
 use std::io::{ Read, Write };
 use std::net::{ SocketAddr, TcpListener, TcpStream };
 use std::sync::{ Arc, Mutex, MutexGuard };
+use std::time::{ Duration, Instant };
 use local_ip_address::local_ip;
 
 use crate::models::client::Client;
@@ -25,6 +26,14 @@ fn main() {
     // Create a mutex-protected clients vector
     let clients: Arc<Mutex<Vec<Client>>> = Arc::new(Mutex::new(Vec::new()));
 
+    // Clone clients for use in the thread
+    let clients_clone: Arc<Mutex<Vec<Client>>> = Arc::clone(&clients);
+
+    // Start a background thread for monitoring keep alive
+    thread::spawn(move || {
+        monitor_keep_alive(clients_clone);
+    });
+
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -39,6 +48,31 @@ fn main() {
             Err(err) => {
                 // Print error if accepting a client connection fails
                 println!("Error accepting client connection: {:?}", err);
+            }
+        }
+    }
+}
+
+fn monitor_keep_alive(clients: Arc<Mutex<Vec<Client>>>) {
+    loop {
+        // Sleep for a short duration
+        thread::sleep(Duration::from_secs(1));
+
+        // Access the clients vector within the mutex
+        let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+
+        // Iterate over the clients and check keep alive
+        let now: Instant = Instant::now();
+        for client in clients.iter_mut() {
+            if client.keep_alive > 0 {
+                if let Some(last_packet_received) = client.last_packet_received {
+                    let elapsed: Duration = now - last_packet_received;
+                    if elapsed > Duration::from_secs(((client.keep_alive as u64) * 3) / 2) {
+                        // Disconnect the client
+                        println!("Exceeded keep alive timeout, disconnecting client: {:?}", client);
+                        client.handle_disconnect();
+                    }
+                }
             }
         }
     }
@@ -112,6 +146,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                             // Reject the connection
                                             let _ = stream.write(&[32, 2, 0, 2]); // Reject Identifier
                                             let _ = stream.flush();
+
                                             break; // Exit the loop without adding the client to the list
                                         } else {
                                             // Update the existing client to be connected
@@ -124,9 +159,22 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                             existing_client.username = new_client.username;
                                             existing_client.password = new_client.password;
                                             existing_client.socket_addr = socket_addr;
-                                            existing_client.flags = new_client.flags;
+                                            existing_client.connect_flags =
+                                                new_client.connect_flags;
+
+                                            // Update last packet time for the client
+                                            update_client_last_packet_time(
+                                                &mut clients,
+                                                &new_client.id
+                                            );
                                         }
                                     } else {
+                                        // Update last packet time for the client
+                                        update_client_last_packet_time(
+                                            &mut clients,
+                                            &new_client.id
+                                        );
+
                                         // Add the new client to the list
                                         clients.push(new_client);
                                     }
@@ -136,6 +184,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                     let _ = stream.write(&response.return_packet);
                                     let _ = stream.flush();
 
+                                    // DEBUG
                                     // Print information for each client
                                     println!("Client List:");
                                     for client in clients.iter() {
@@ -319,6 +368,17 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
     let _ = stream.shutdown(std::net::Shutdown::Both);
 }
 
+fn update_client_last_packet_time(clients: &mut Vec<Client>, client_id: &str) {
+    if let Some(index) = clients.iter().position(|c: &Client| c.id == client_id) {
+        // Update the client's last_packet_received
+        clients[index].last_packet_received = Some(Instant::now());
+
+        println!("Client found and updated.");
+    } else {
+        println!("Client not found");
+    }
+}
+
 fn disconnect_client_by_socket_addr(
     clients: &mut Vec<Client>,
     socket_addr: SocketAddr,
@@ -347,12 +407,12 @@ fn disconnect_client_by_socket_addr(
     }
 }
 
-fn remove_client(clients: &mut MutexGuard<Vec<Client>>, socket_addr: &SocketAddr) {
-    if
-        let Some(index) = clients
-            .iter()
-            .position(|client: &Client| client.socket_addr == *socket_addr)
-    {
-        clients.remove(index);
-    }
-}
+// fn remove_client(clients: &mut MutexGuard<Vec<Client>>, socket_addr: &SocketAddr) {
+//     if
+//         let Some(index) = clients
+//             .iter()
+//             .position(|client: &Client| client.socket_addr == *socket_addr)
+//     {
+//         clients.remove(index);
+//     }
+// }

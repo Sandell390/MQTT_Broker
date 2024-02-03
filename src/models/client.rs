@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::hash::{ Hash, Hasher };
 use std::net::SocketAddr;
+use std::time::Instant;
 
 use super::flags::ConnectFlags;
 
@@ -15,7 +16,8 @@ pub struct Client {
     pub username: String,
     pub password: String,
     pub socket_addr: SocketAddr,
-    pub flags: ConnectFlags,
+    pub connect_flags: ConnectFlags,
+    pub last_packet_received: Option<Instant>,
 }
 
 // Implement Eq, PartialEq, and Hash for the Client struct
@@ -33,7 +35,8 @@ impl PartialEq for Client {
             self.username == other.username &&
             self.password == other.password &&
             self.socket_addr == other.socket_addr &&
-            self.flags == other.flags
+            self.connect_flags == other.connect_flags &&
+            self.last_packet_received == other.last_packet_received
     }
 }
 
@@ -54,7 +57,8 @@ impl Hash for Client {
         self.username.hash(state);
         self.password.hash(state);
         self.socket_addr.hash(state);
-        self.flags.hash(state);
+        self.connect_flags.hash(state);
+        self.last_packet_received.hash(state);
     }
 }
 
@@ -68,7 +72,8 @@ impl Client {
         username: String,
         password: String,
         socket_addr: SocketAddr,
-        flags: ConnectFlags
+        connect_flags: ConnectFlags,
+        last_packet_received: Option<Instant>
     ) -> Client {
         Client {
             id: client_id,
@@ -80,7 +85,8 @@ impl Client {
             username,
             password,
             socket_addr,
-            flags,
+            connect_flags,
+            last_packet_received,
         }
     }
 
