@@ -7,4 +7,5 @@ pub struct Response {
 
 // pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'static str> {
 //     // Code goes here
+//     return Ok(Response { return_packet: [1, 2, 3, 4], client });
 // }

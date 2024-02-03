@@ -110,7 +110,7 @@ impl Client {
 
     // // Method for handling client connection
     // pub fn handle_connect(mut self) -> Self {
-    //     println!("Client '{}' connected", self.client_id);
+    //     println!("Client '{}' connected", self.id);
 
     //     // Update is_connected, to reflect connection state
     //     self.is_connected = true;
@@ -118,13 +118,11 @@ impl Client {
     //     return self;
     // }
 
-    // // Method for handling client disconnection
-    // pub fn handle_disconnect(mut self) -> Self {
-    //     println!("Client '{}' disconnected", self.client_id);
+    // Method for handling client disconnection
+    pub fn handle_disconnect(&mut self) {
+        println!("Client '{}' disconnected", self.id);
 
-    //     // Update is_connected, to reflect connection state
-    //     self.is_connected = false;
-
-    //     return self;
-    // }
+        // Update is_connected, to reflect connection state
+        self.is_connected = false;
+    }
 }
