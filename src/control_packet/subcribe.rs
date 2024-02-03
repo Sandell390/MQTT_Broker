@@ -1,17 +1,6 @@
-use crate::{common_fn, models::topicfilter::Topfilter};
+use crate::{common_fn, models::{sub_info::SubInfo, topicfilter::Topfilter}};
 
 
-pub struct SubInfo{
-    pub packet_id: u16,
-    pub topic_qos_pair: Vec<Topfilter>,
-    pub suback_packet: Vec<u8>
-}
-
-impl SubInfo {
-    pub fn get_packet_id_bytes(&self) -> [u8; 2] {
-        u16::to_be_bytes(self.packet_id)
-    }
-}
 
 pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str>{
 
@@ -108,7 +97,7 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
     return Ok(SubInfo{
         packet_id,
         topic_qos_pair,
-        suback_packet
+        return_packet: suback_packet
     });
 }
 

@@ -6,7 +6,7 @@ use std::time::{ Duration, Instant };
 use local_ip_address::local_ip;
 
 use crate::models::client::Client;
-use crate::models::topicfilter;
+use crate::models::{sub_info, topicfilter};
 
 mod control_packet;
 mod common_fn;
@@ -269,14 +269,14 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                 Ok(sub_packet) => {
                                 
                                     if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr){
-                                        
+
                                         // Adding topic filters to the client
                                         for topicfilter in sub_packet.topic_qos_pair {
                                             clients[index].add_subscription(topicfilter);
                                         }
                                     }
 
-                                    let _ = stream.write(sub_packet.suback_packet.as_slice());
+                                    let _ = stream.write(sub_packet.return_packet.as_slice());
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
