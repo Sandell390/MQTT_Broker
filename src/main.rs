@@ -61,19 +61,30 @@ fn monitor_keep_alive(clients: Arc<Mutex<Vec<Client>>>) {
         // Access the clients vector within the mutex
         let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
-        // Iterate over the clients and check keep alive
+        // Iterate over the indices of the clients vector
         let now: Instant = Instant::now();
-        for client in clients.iter_mut() {
-            if client.keep_alive > 0 {
-                if let Some(last_packet_received) = client.last_packet_received {
-                    let elapsed: Duration = now - last_packet_received;
-                    if elapsed > Duration::from_secs(((client.keep_alive as u64) * 3) / 2) {
+        let mut i: usize = 0;
+        while i < clients.len() {
+            if clients[i].keep_alive > 0 {
+                if let Some(last_packet_received) = clients[i].last_packet_received {
+                    let elapsed = now - last_packet_received;
+
+                    if elapsed > Duration::from_secs(((clients[i].keep_alive as u64) * 3) / 2) {
                         // Disconnect the client
-                        println!("Exceeded keep alive timeout, disconnecting client: {:?}", client);
-                        client.handle_disconnect();
+                        println!(
+                            "Exceeded keep alive timeout, disconnecting client: {:?}",
+                            clients[i]
+                        );
+
+                        clients[i].handle_disconnect();
+                        clients.remove(i);
+
+                        continue; // Skip incrementing i since we removed an element
                     }
                 }
             }
+
+            i += 1;
         }
     }
 }
@@ -373,7 +384,7 @@ fn update_client_last_packet_time(clients: &mut Vec<Client>, client_id: &str) {
         // Update the client's last_packet_received
         clients[index].last_packet_received = Some(Instant::now());
 
-        println!("Client found and updated.");
+        println!("Client found and updated keep alive.");
     } else {
         println!("Client not found");
     }
@@ -406,13 +417,3 @@ fn disconnect_client_by_socket_addr(
         println!("Client not found.");
     }
 }
-
-// fn remove_client(clients: &mut MutexGuard<Vec<Client>>, socket_addr: &SocketAddr) {
-//     if
-//         let Some(index) = clients
-//             .iter()
-//             .position(|client: &Client| client.socket_addr == *socket_addr)
-//     {
-//         clients.remove(index);
-//     }
-// }
