@@ -6,6 +6,7 @@ use std::time::{ Duration, Instant };
 use local_ip_address::local_ip;
 
 use crate::models::client::Client;
+use crate::models::topicfilter;
 
 mod control_packet;
 mod common_fn;
@@ -91,7 +92,6 @@ fn monitor_keep_alive(clients: Arc<Mutex<Vec<Client>>>) {
 
 fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
     let socket_addr: SocketAddr = stream.peer_addr().unwrap();
-
     // Print client connection information
     println!("Client connected: {}", socket_addr);
 
@@ -260,10 +260,22 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                     8 => {
                         // SUBSCRIBE
                         if has_first_packet_arrived {
+
+                            // Access the clients vector within the mutex
+                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+
                             // Validation Logic Goes here, I think...
                             match control_packet::subcribe::validate(buffer, packet_length) {
                                 Ok(sub_packet) => {
                                 
+                                    if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr){
+                                        
+                                        // Adding topic filters to the client
+                                        for topicfilter in sub_packet.topic_qos_pair {
+                                            clients[index].add_subscription(topicfilter);
+                                        }
+                                    }
+
                                     let _ = stream.write(sub_packet.suback_packet.as_slice());
                                 }
                                 Err(err) => {
