@@ -1,3 +1,5 @@
+use std::{ net::SocketAddr, time::Instant };
+
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
 pub struct Response {
@@ -5,7 +7,11 @@ pub struct Response {
     pub client: Client,
 }
 
-pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'static str> {
+pub fn validate(
+    buffer: [u8; 8192],
+    packet_length: usize,
+    socket_addr: SocketAddr
+) -> Result<Response, &'static str> {
     println!("MQTT Connection is being validated");
 
     // Validate packet
@@ -20,7 +26,7 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'sta
     }
 
     let mut has_valid_protocol_length_and_name = true;
-    let mut current_index: usize = bytes_read - remaining_length;
+    let mut current_index: usize = packet_length - remaining_length;
 
     // Control protocol length & name
     match common_fn::msb_lsb_reader::get_values(&buffer, current_index, true) {
@@ -218,8 +224,6 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'sta
         match common_fn::msb_lsb_reader::get_values(&buffer, current_index, true) {
             Ok(response) => {
                 password = response.1;
-
-                current_index = response.2;
             }
             Err(err) => {
                 println!("{}", err);
@@ -234,16 +238,16 @@ pub fn validate(buffer: [u8; 8192], bytes_read: usize) -> Result<Response, &'sta
         keep_alive,
         username,
         password,
-        connect_flags
+        socket_addr,
+        connect_flags,
+        Some(Instant::now())
     );
 
     // Assemble return packet
-    let mut session_present_byte: u8 = 0;
+    let session_present_byte: u8 = 0;
 
     let connack_packet: [u8; 4] = [32, 2, session_present_byte, connect_return_code];
 
-    println!("{:?}", client);
-
     // Return newly assembled return packet
-    return Ok(Response { return_packet: connack_packet, client: client });
+    return Ok(Response { return_packet: connack_packet, client });
 }
