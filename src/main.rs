@@ -6,6 +6,7 @@ use std::time::{ Duration, Instant };
 use local_ip_address::local_ip;
 
 use crate::models::client::Client;
+use crate::models::{sub_info, topicfilter};
 
 mod control_packet;
 mod common_fn;
@@ -91,7 +92,6 @@ fn monitor_keep_alive(clients: Arc<Mutex<Vec<Client>>>) {
 
 fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
     let socket_addr: SocketAddr = stream.peer_addr().unwrap();
-
     // Print client connection information
     println!("Client connected: {}", socket_addr);
 
@@ -260,34 +260,23 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                     8 => {
                         // SUBSCRIBE
                         if has_first_packet_arrived {
+
+                            // Access the clients vector within the mutex
+                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+
                             // Validation Logic Goes here, I think...
                             match control_packet::subcribe::validate(buffer, packet_length) {
                                 Ok(sub_packet) => {
-                                    /* 
-                                    // Debug prints
-                                    println!("PacketID: {:?}", sub_packet.0);
-                                    for (topic_filter, qos) in &sub_packet.1 {
-                                        println!("{topic_filter:?} {qos}");
-                                    }
-                                    */
-                                    // Convert Hashmap vaules to Vec u8
-                                    let values: Vec<u8> = sub_packet.1.values().cloned().collect();
-                                    // Assembles the return and sends it
-                                    match
-                                        control_packet::subcribe::assemble_suback_packet(
-                                            values.as_slice(),
-                                            &sub_packet.0
-                                        )
-                                    {
-                                        Ok(return_packet_vec) => {
-                                            // Convert the byte vector into a byte slice
-                                            let suback_buffer: &[u8] = return_packet_vec.as_slice();
+                                
+                                    if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr){
 
-                                            // Sends to the client
-                                            let _ = stream.write(suback_buffer);
+                                        // Adding topic filters to the client
+                                        for topicfilter in sub_packet.topic_qos_pair {
+                                            clients[index].add_subscription(topicfilter);
                                         }
-                                        Err(_) => println!("Error"),
                                     }
+
+                                    let _ = stream.write(sub_packet.return_packet.as_slice());
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -303,6 +292,28 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                         // UNSUBSCRIBE
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
+                            // Access the clients vector within the mutex
+                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+
+                            // Validation Logic Goes here, I think...
+                            match control_packet::unsubcribe::validate(buffer, packet_length) {
+                                Ok(unsub_packet) => {
+                                
+                                    if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr){
+
+                                        // Removing topic filters to the client
+                                        for topicfilter in unsub_packet.topic_qos_pair {
+                                            clients[index].remove_subscription(topicfilter);
+                                        }
+                                    }
+
+                                    let _ = stream.write(unsub_packet.return_packet.as_slice());
+                                }
+                                Err(err) => {
+                                    println!("An error has occured: {}", err);
+                                    break;
+                                }
+                            }
                         } else {
                             // Disconnect
                             break;
