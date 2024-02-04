@@ -292,6 +292,28 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                         // UNSUBSCRIBE
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
+                            // Access the clients vector within the mutex
+                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+
+                            // Validation Logic Goes here, I think...
+                            match control_packet::unsubcribe::validate(buffer, packet_length) {
+                                Ok(unsub_packet) => {
+                                
+                                    if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr){
+
+                                        // Removing topic filters to the client
+                                        for topicfilter in unsub_packet.topic_qos_pair {
+                                            clients[index].remove_subscription(topicfilter);
+                                        }
+                                    }
+
+                                    let _ = stream.write(unsub_packet.return_packet.as_slice());
+                                }
+                                Err(err) => {
+                                    println!("An error has occured: {}", err);
+                                    break;
+                                }
+                            }
                         } else {
                             // Disconnect
                             break;
