@@ -1,10 +1,10 @@
-use std::{ net::SocketAddr, sync::mpsc::{channel, Sender, Receiver}, time::Instant };
+use std::{ net::SocketAddr, sync::mpsc::{channel, Sender, Receiver}};
 
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
 pub struct Response {
     pub return_packet: [u8; 4],
-    pub rx: Receiver<Vec<u8>>
+    pub rx: Receiver<Vec<u8>>,
     pub keep_alive: u64,
 }
 
@@ -213,8 +213,8 @@ pub fn handle(
         username,
         password,
         socket_addr,
-        connect_flags,
         tx,
+        connect_flags,
     );
 
     // Set to 1.5 times the specified amount, AFTER a new Client is created.

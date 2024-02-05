@@ -12,7 +12,7 @@ pub struct Client {
     pub will_topic: String,
     pub will_message: String,
     pub is_connected: bool,
-    pub subscriptions: HashSet<Topfilter>,
+    pub subscriptions: HashSet<Topicfilter>,
     pub keep_alive: u64,
     pub username: String,
     pub password: String,
