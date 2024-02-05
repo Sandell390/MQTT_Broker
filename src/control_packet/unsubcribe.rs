@@ -1,4 +1,4 @@
-use crate::{common_fn, models::{sub_info::SubInfo, topicfilter::Topfilter}};
+use crate::{common_fn, models::{sub_info::SubInfo, topicfilter::Topicfilter}};
 
 pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str>{
 
@@ -49,7 +49,7 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
     }
 
     // Holds topics
-    let mut topics: Vec<Topfilter>= Vec::new();
+    let mut topics: Vec<Topicfilter>= Vec::new();
 
     // Get all topic filters
     while current_index <= remaining_length {
@@ -61,7 +61,7 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
                 // Puts the current index to after read string
                 current_index = response.2;
 
-                topics.push(Topfilter { topic_name: response.1, qos: 0});
+                topics.push(Topicfilter { topic_name: response.1, qos: 0});
             }
             Err(err) => {
                 println!("{}", err);

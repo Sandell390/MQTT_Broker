@@ -1,9 +1,10 @@
-use std::net::SocketAddr;
+use std::{ net::SocketAddr, sync::mpsc::{channel, Sender, Receiver}};
 
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
 pub struct Response {
     pub return_packet: [u8; 4],
+    pub rx: Receiver<Vec<u8>>,
     pub keep_alive: u64,
 }
 
@@ -201,6 +202,9 @@ pub fn handle(
         }
     }
 
+    // Creates Sender and Receiver to make event calls
+    let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
+
     let client: Client = Client::new(
         client_id,
         will_topic,
@@ -209,7 +213,8 @@ pub fn handle(
         username,
         password,
         socket_addr,
-        connect_flags
+        tx,
+        connect_flags,
     );
 
     // Set to 1.5 times the specified amount, AFTER a new Client is created.
@@ -261,5 +266,5 @@ pub fn handle(
     }
 
     // Return newly assembled return packet
-    return Ok(Response { return_packet: connack_packet, keep_alive });
+    return Ok(Response { return_packet: connack_packet, keep_alive, rx });
 }

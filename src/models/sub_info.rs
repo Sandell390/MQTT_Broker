@@ -1,8 +1,8 @@
-use crate::models::topicfilter::Topfilter;
+use crate::models::topicfilter::Topicfilter;
 
 pub struct SubInfo{
     pub packet_id: u16,
-    pub topic_qos_pair: Vec<Topfilter>,
+    pub topic_qos_pair: Vec<Topicfilter>,
     pub return_packet: Vec<u8>
 }
 

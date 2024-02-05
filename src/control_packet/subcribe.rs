@@ -1,4 +1,4 @@
-use crate::{common_fn, models::{sub_info::SubInfo, topicfilter::Topfilter}};
+use crate::{common_fn, models::{sub_info::SubInfo, topicfilter::Topicfilter}};
 
 
 
@@ -51,7 +51,7 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
     }
     
     // Holds the toptic filters and the associated QoS 
-    let mut topic_qos_pair: Vec<Topfilter>= Vec::new();
+    let mut topic_qos_pair: Vec<Topicfilter>= Vec::new();
 
     // Only to hold the qos so it can be used to suback packet
     let mut qos_vec: Vec<u8> = Vec::new();
@@ -71,7 +71,7 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
                     Ok(splited_byte) => {
             
                         // Inserts both topic filter and QoS into the Vector
-                        topic_qos_pair.push(Topfilter { topic_name: response.1, qos: splited_byte[1]});
+                        topic_qos_pair.push(Topicfilter { topic_name: response.1, qos: splited_byte[1]});
                         qos_vec.push(splited_byte[1]);
                         current_index += 1;
                     }

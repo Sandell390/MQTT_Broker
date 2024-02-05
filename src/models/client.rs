@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 use std::hash::{ Hash, Hasher };
 use std::net::SocketAddr;
+use std::sync::mpsc::Sender;
 
 use super::flags::ConnectFlags;
-use super::topicfilter::Topfilter;
+use super::topicfilter::Topicfilter;
 
 #[derive(Debug)]
 pub struct Client {
@@ -11,16 +12,19 @@ pub struct Client {
     pub will_topic: String,
     pub will_message: String,
     pub is_connected: bool,
-    pub subscriptions: HashSet<Topfilter>,
+    pub subscriptions: HashSet<Topicfilter>,
     pub keep_alive: u64,
     pub username: String,
     pub password: String,
     pub socket_addr: SocketAddr,
     pub connect_flags: ConnectFlags,
+    pub tx: Sender<Vec<u8>>,
 }
 
 // Implement Eq, PartialEq, and Hash for the Client struct
 impl Eq for Client {}
+
+
 
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
@@ -69,8 +73,10 @@ impl Client {
         username: String,
         password: String,
         socket_addr: SocketAddr,
-        connect_flags: ConnectFlags
+        tx: Sender<Vec<u8>>,
+        connect_flags: ConnectFlags,
     ) -> Client {
+
         Client {
             id: client_id,
             will_topic,
@@ -82,11 +88,12 @@ impl Client {
             password,
             socket_addr,
             connect_flags,
+            tx,
         }
     }
 
     // Method for adding a subscription
-    pub fn add_subscription(&mut self, topic_filter: Topfilter) {
+    pub fn add_subscription(&mut self, topic_filter: Topicfilter) {
         // Remove the topic filter if the client already have it
         self.subscriptions.remove(&topic_filter);
 
@@ -96,7 +103,7 @@ impl Client {
     }
 
     // Method for removing a subscription
-    pub fn remove_subscription(&mut self, topic_filter: Topfilter) {
+    pub fn remove_subscription(&mut self, topic_filter: Topicfilter) {
         // Implement code for removing a subscription from the client's subscription list
         self.subscriptions.remove(&topic_filter);
         println!("Removed topic: {} for {}", &topic_filter.topic_name, self.id);

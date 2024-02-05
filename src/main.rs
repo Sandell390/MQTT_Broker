@@ -90,8 +90,15 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                 )
                             {
                                 Ok(response) => {
-                                    // Create a new client from the response of connect::validate()
                                     let keep_alive: u64 = response.keep_alive;
+                                                                      // Copy the stream to the event thread
+                                    let mut stream_clone = stream.try_clone().unwrap();
+                                    thread::spawn(move || {
+                                        for message in response.rx {
+                                            // Sends the message to the client
+                                            let _ = stream_clone.write(message.as_slice());
+                                        }
+                                    });
 
                                     // Continue with handling the connection
                                     // Send response to the client
@@ -318,6 +325,9 @@ fn disconnect_client_by_socket_addr(
     if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr) {
         // Extract the client from the list
         let mut client: Client = clients.remove(index);
+
+        // Publish the will message to clients that have subscribed on the will topic
+        control_packet::publish::publish(clients, &client.will_topic, &client.will_message);
 
         // Call handle_disconnect on the client
         client.handle_disconnect();
