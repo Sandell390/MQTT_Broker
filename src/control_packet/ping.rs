@@ -20,5 +20,5 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<[u8; 2], &'sta
         return Err("No payload expected here");
     }
 
-    return Ok([13, 0]);
+    return Ok([208, 0]);
 }
