@@ -2,11 +2,10 @@ use std::thread;
 use std::io::{ Read, Write };
 use std::net::{ SocketAddr, TcpListener, TcpStream };
 use std::sync::{ Arc, Mutex, MutexGuard };
-use std::time::{ Duration, Instant };
+use std::time::Duration;
 use local_ip_address::local_ip;
 
 use crate::models::client::Client;
-use crate::models::{sub_info, topicfilter};
 
 mod control_packet;
 mod common_fn;
@@ -27,14 +26,6 @@ fn main() {
     // Create a mutex-protected clients vector
     let clients: Arc<Mutex<Vec<Client>>> = Arc::new(Mutex::new(Vec::new()));
 
-    // Clone clients for use in the thread
-    let clients_clone: Arc<Mutex<Vec<Client>>> = Arc::clone(&clients);
-
-    // Start a background thread for monitoring keep alive
-    thread::spawn(move || {
-        monitor_keep_alive(clients_clone);
-    });
-
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -54,44 +45,10 @@ fn main() {
     }
 }
 
-fn monitor_keep_alive(clients: Arc<Mutex<Vec<Client>>>) {
-    loop {
-        // Sleep for a short duration
-        thread::sleep(Duration::from_secs(1));
-
-        // Access the clients vector within the mutex
-        let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
-
-        // Iterate over the indices of the clients vector
-        let now: Instant = Instant::now();
-        let mut i: usize = 0;
-        while i < clients.len() {
-            if clients[i].keep_alive > 0 {
-                if let Some(last_packet_received) = clients[i].last_packet_received {
-                    let elapsed = now - last_packet_received;
-
-                    if elapsed > Duration::from_secs(((clients[i].keep_alive as u64) * 3) / 2) {
-                        // Disconnect the client
-                        println!(
-                            "Exceeded keep alive timeout, disconnecting client: {:?}",
-                            clients[i]
-                        );
-
-                        clients[i].handle_disconnect();
-                        clients.remove(i);
-
-                        continue; // Skip incrementing i since we removed an element
-                    }
-                }
-            }
-
-            i += 1;
-        }
-    }
-}
-
 fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
     let socket_addr: SocketAddr = stream.peer_addr().unwrap();
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(0)));
+
     // Print client connection information
     println!("Client connected: {}", socket_addr);
 
@@ -114,6 +71,8 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                     ::split_byte(&buffer[0], 4)
                     .expect("")[0];
 
+                println!("Recieved packet: {}", packet_type);
+                println!("{:?}", &buffer[..packet_length]);
                 // Match for incoming packets
                 match packet_type {
                     1 => {
@@ -173,17 +132,21 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                             existing_client.connect_flags =
                                                 new_client.connect_flags;
 
-                                            // Update last packet time for the client
-                                            update_client_last_packet_time(
-                                                &mut clients,
-                                                &new_client.id
+                                            // Set keep_alive
+                                            let _ = stream.set_read_timeout(
+                                                Some(
+                                                    Duration::from_secs(
+                                                        (new_client.keep_alive * 3) / 2
+                                                    )
+                                                )
                                             );
                                         }
                                     } else {
-                                        // Update last packet time for the client
-                                        update_client_last_packet_time(
-                                            &mut clients,
-                                            &new_client.id
+                                        // Set keep_alive
+                                        let _ = stream.set_read_timeout(
+                                            Some(
+                                                Duration::from_secs((new_client.keep_alive * 3) / 2)
+                                            )
                                         );
 
                                         // Add the new client to the list
@@ -260,16 +223,17 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                     8 => {
                         // SUBSCRIBE
                         if has_first_packet_arrived {
-
                             // Access the clients vector within the mutex
                             let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
                             // Validation Logic Goes here, I think...
                             match control_packet::subcribe::validate(buffer, packet_length) {
                                 Ok(sub_packet) => {
-                                
-                                    if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr){
-
+                                    if
+                                        let Some(index) = clients
+                                            .iter()
+                                            .position(|c: &Client| c.socket_addr == socket_addr)
+                                    {
                                         // Adding topic filters to the client
                                         for topicfilter in sub_packet.topic_qos_pair {
                                             clients[index].add_subscription(topicfilter);
@@ -298,9 +262,11 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                             // Validation Logic Goes here, I think...
                             match control_packet::unsubcribe::validate(buffer, packet_length) {
                                 Ok(unsub_packet) => {
-                                
-                                    if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr){
-
+                                    if
+                                        let Some(index) = clients
+                                            .iter()
+                                            .position(|c: &Client| c.socket_addr == socket_addr)
+                                    {
                                         // Removing topic filters to the client
                                         for topicfilter in unsub_packet.topic_qos_pair {
                                             clients[index].remove_subscription(topicfilter);
@@ -322,6 +288,9 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                     12 => {
                         // PINGREQ
                         if has_first_packet_arrived {
+                            let _ = stream.write(&[0xd0, 0x00]);
+                            let _ = stream.flush();
+
                             // Validation Logic Goes here, I think...
                         } else {
                             // Disconnect
@@ -388,17 +357,6 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
     }
 
     let _ = stream.shutdown(std::net::Shutdown::Both);
-}
-
-fn update_client_last_packet_time(clients: &mut Vec<Client>, client_id: &str) {
-    if let Some(index) = clients.iter().position(|c: &Client| c.id == client_id) {
-        // Update the client's last_packet_received
-        clients[index].last_packet_received = Some(Instant::now());
-
-        println!("Client found and updated keep alive.");
-    } else {
-        println!("Client not found");
-    }
 }
 
 fn disconnect_client_by_socket_addr(

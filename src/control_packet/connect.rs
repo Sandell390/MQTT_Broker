@@ -140,12 +140,12 @@ pub fn validate(
 
     current_index += 1; // Move the pointer 1 byte to the right
 
-    let mut keep_alive: usize = 0;
+    let mut keep_alive: u64 = 0;
 
     // Read the keep alive byte (MSB & LSB)
     match common_fn::msb_lsb_reader::get_values(&buffer, current_index, false) {
         Ok(response) => {
-            keep_alive = response.0;
+            keep_alive = response.0 as u64;
 
             current_index = response.2;
         }
@@ -239,8 +239,7 @@ pub fn validate(
         username,
         password,
         socket_addr,
-        connect_flags,
-        Some(Instant::now())
+        connect_flags
     );
 
     // Assemble return packet
