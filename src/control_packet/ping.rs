@@ -16,7 +16,7 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<[u8; 2], &'sta
         Err(err) => println!("Error: {}", err),
     }
 
-    if remaining_length != 0 {
+    if remaining_length != 0 || packet_length > 2 {
         return Err("No payload expected here");
     }
 
