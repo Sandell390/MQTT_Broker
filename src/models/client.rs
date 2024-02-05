@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::time::Instant;
 
 use super::flags::ConnectFlags;
-use super::topicfilter::Topfilter;
+use super::topicfilter::Topicfilter;
 
 #[derive(Debug)]
 pub struct Client {
@@ -12,7 +12,7 @@ pub struct Client {
     pub will_topic: String,
     pub will_message: String,
     pub is_connected: bool,
-    pub subscriptions: HashSet<Topfilter>,
+    pub subscriptions: HashSet<Topicfilter>,
     pub keep_alive: usize,
     pub username: String,
     pub password: String,
@@ -92,7 +92,7 @@ impl Client {
     }
 
     // Method for adding a subscription
-    pub fn add_subscription(&mut self, topic_filter: Topfilter) {
+    pub fn add_subscription(&mut self, topic_filter: Topicfilter) {
         
         // Remove the topic filter if the client already have it
         self.subscriptions.remove(&topic_filter);
@@ -103,7 +103,7 @@ impl Client {
     }
 
     // Method for removing a subscription
-    pub fn remove_subscription(&mut self, topic_filter: Topfilter) {
+    pub fn remove_subscription(&mut self, topic_filter: Topicfilter) {
         // Implement code for removing a subscription from the client's subscription list
         self.subscriptions.remove(&topic_filter);
         println!("Removed topic: {} for {}", &topic_filter.topic_name, self.id, );
