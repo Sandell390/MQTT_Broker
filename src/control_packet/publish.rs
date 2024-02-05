@@ -21,7 +21,7 @@ pub fn publish(clients: &mut Vec<Client>, topic_name: &str, topic_message: &str)
 
 
             // Remaning packet lenght
-            packet.push(u8::try_from(2 + topic_name_bytes.len() + topic_message_bytes.len() + 2).unwrap());
+            packet.push(u8::try_from(2 + topic_name_bytes.len() + 2 + topic_message_bytes.len() + 2).unwrap());
 
             // LSB and MSB for topic name
             packet.append(u16::try_from(topic_name_bytes.len()).unwrap().to_be_bytes().to_vec().as_mut());
