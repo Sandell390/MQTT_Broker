@@ -1,51 +1,130 @@
-use crate::models::{client::Client, topicfilter::Topicfilter};
+use crate::models::{ topic::Topic, client::Client };
+use crate::common_fn;
+use rand::Rng;
 
-pub fn publish(clients: &mut Vec<Client>, topic_name: &str, topic_message: &str){
+pub fn publish(
+    topics: &mut Vec<Topic>,
+    clients: &mut Vec<Client>,
+    topic_name: &str,
+    topic_message: &str,
+    dup: &bool,
+    qos: &u8,
+    retain: &bool
+) {
+    for topic in topics.iter() {
+        if topic_name == topic.topic_name {
+            for client in clients.iter() {
+                if
+                    let Some(client_index) = topic.client_ids
+                        .iter()
+                        .position(|c: &(String, u8)| &c.0 == &client.id)
+                {
+                    let mut packet: Vec<u8> = Vec::new();
 
-    for client in clients.iter(){
+                    let mut first_byte: u8 = 0b0011_0000;
 
-        // Converts the topic message to bytes
-        let topic_message_bytes: Vec<u8> = topic_message.as_bytes().to_vec();
-        
-        // Converts the topic name to bytes
-        let topic_name_bytes: Vec<u8> = topic_name.as_bytes().to_vec();
+                    if *dup {
+                        first_byte |= 1 << 3;
+                    }
 
-        // Checks if there are any clients that subscribs on the given topic name
-        if client.subscriptions.contains(&Topicfilter{topic_name: topic_name.to_string(), qos: 0}){
+                    if *qos == 2 {
+                        first_byte |= 1 << 2;
+                    }
 
-            // Packet to send the client
-            let mut packet: Vec<u8> = Vec::new();
+                    if *qos == 1 {
+                        first_byte |= 1 << 1;
+                    }
 
-            // Packet Type Publish: 3 + Publish flags (Needs to be set!) TODO: get publish flags
-            packet.push(48);
+                    if *retain {
+                        first_byte |= 1 << 0;
+                    }
 
+                    let mut remaining_length: u8 = 0;
 
-            // Remaning packet lenght
-            packet.push(u8::try_from(2 + topic_name_bytes.len() + 2 + topic_message_bytes.len() + 2).unwrap());
+                    let mut topic_name_bytes = common_fn::msb_lsb_creater
+                        ::create_packet(topic_name)
+                        .unwrap();
 
-            // LSB and MSB for topic name
-            packet.append(u16::try_from(topic_name_bytes.len()).unwrap().to_be_bytes().to_vec().as_mut());
+                    let packet_id: u16 = rand::thread_rng().gen_range(1..=u16::MAX);
 
-            // Puts all topic name bytes in the packet
-            for byte in topic_name_bytes{
-                packet.push(byte);
+                    let mut topic_message_bytes = common_fn::msb_lsb_creater
+                        ::create_packet(topic_message)
+                        .unwrap();
+
+                    packet.push(first_byte);
+                    // Sets the remaining length later
+                    packet.push(0);
+                    packet.append(&mut topic_name_bytes);
+                    packet.append(
+                        u16::try_from(packet_id).unwrap().to_be_bytes().to_vec().as_mut()
+                    );
+                    packet.append(&mut topic_message_bytes);
+
+                    let mut packet_copy: Vec<u8> = Vec::new();
+                    packet_copy.extend_from_slice(&packet[3..]);
+                    remaining_length = common_fn::bit_operations
+                        ::decode_remaining_length(packet_copy.as_slice())
+                        .unwrap() as u8;
+
+                    packet[1] = remaining_length;
+
+                    println!("{:?}", packet);
+
+                    let _ = client.tx.send(packet);
+                };
             }
-
-            // Packet ID
-            packet.append(u16::try_from(10).unwrap().to_be_bytes().to_vec().as_mut());
-
-            // LSB and MSB for topic message
-            packet.append(u16::try_from(topic_message_bytes.len()).unwrap().to_be_bytes().to_vec().as_mut());
-
-            // Puts all topic message bytes in the packet
-            for byte in topic_message_bytes{
-                packet.push(byte);
-            }
-
-            // Sends the packet to the client
-            println!("Publish packet: {:?}", packet);
-            let _ = client.tx.send(packet);
         }
     }
-
 }
+
+// for client in clients.iter() {
+//     // Converts the topic message to bytes
+//     let topic_message_bytes: Vec<u8> = topic_message.as_bytes().to_vec();
+
+//     // Converts the topic name to bytes
+//     let topic_name_bytes: Vec<u8> = topic_name.as_bytes().to_vec();
+
+//     // Checks if there are any clients that subscribs on the given topic name
+//     if true {
+//         // Packet to send the client
+//         let mut packet: Vec<u8> = Vec::new();
+
+//         // Packet Type Publish: 3 + Publish flags (Needs to be set!) TODO: get publish flags
+//         packet.push(48);
+
+//         // Remaning packet lenght
+//         packet.push(
+//             u8
+//                 ::try_from(2 + topic_name_bytes.len() + 2 + topic_message_bytes.len() + 2)
+//                 .unwrap()
+//         );
+
+//         // LSB and MSB for topic name
+//         packet.append(
+//             u16::try_from(topic_name_bytes.len()).unwrap().to_be_bytes().to_vec().as_mut()
+//         );
+
+//         // Puts all topic name bytes in the packet
+//         for byte in topic_name_bytes {
+//             packet.push(byte);
+//         }
+
+//         // Packet ID
+//         packet.append(u16::try_from(10).unwrap().to_be_bytes().to_vec().as_mut());
+
+//         // LSB and MSB for topic message
+//         packet.append(
+//             u16::try_from(topic_message_bytes.len()).unwrap().to_be_bytes().to_vec().as_mut()
+//         );
+
+//         // Puts all topic message bytes in the packet
+//         for byte in topic_message_bytes {
+//             packet.push(byte);
+//         }
+
+//         // Sends the packet to the client
+//         println!("Publish packet: {:?}", packet);
+//         let _ = client.tx.send(packet);
+//     }
+// }
+// }

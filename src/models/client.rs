@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::sync::mpsc::Sender;
 
 use super::flags::ConnectFlags;
-use super::topicfilter::Topicfilter;
+use super::topic::Topic;
 
 #[derive(Debug)]
 pub struct Client {
@@ -12,7 +12,7 @@ pub struct Client {
     pub will_topic: String,
     pub will_message: String,
     pub is_connected: bool,
-    pub subscriptions: HashSet<Topicfilter>,
+    pub subscriptions: HashSet<Topic>,
     pub keep_alive: u64,
     pub username: String,
     pub password: String,
@@ -23,8 +23,6 @@ pub struct Client {
 
 // Implement Eq, PartialEq, and Hash for the Client struct
 impl Eq for Client {}
-
-
 
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
@@ -74,9 +72,8 @@ impl Client {
         password: String,
         socket_addr: SocketAddr,
         tx: Sender<Vec<u8>>,
-        connect_flags: ConnectFlags,
+        connect_flags: ConnectFlags
     ) -> Client {
-
         Client {
             id: client_id,
             will_topic,
@@ -93,7 +90,7 @@ impl Client {
     }
 
     // Method for adding a subscription
-    pub fn add_subscription(&mut self, topic_filter: Topicfilter) {
+    pub fn add_subscription(&mut self, topic_filter: Topic) {
         // Remove the topic filter if the client already have it
         self.subscriptions.remove(&topic_filter);
 
@@ -103,7 +100,7 @@ impl Client {
     }
 
     // Method for removing a subscription
-    pub fn remove_subscription(&mut self, topic_filter: Topicfilter) {
+    pub fn remove_subscription(&mut self, topic_filter: Topic) {
         // Implement code for removing a subscription from the client's subscription list
         self.subscriptions.remove(&topic_filter);
         println!("Removed topic: {} for {}", &topic_filter.topic_name, self.id);
