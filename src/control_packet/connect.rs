@@ -1,10 +1,11 @@
-use std::{ net::SocketAddr, time::Instant };
+use std::{ net::SocketAddr, sync::mpsc::{channel, Sender, Receiver}, time::Instant };
 
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
 pub struct Response {
     pub return_packet: [u8; 4],
     pub client: Client,
+    pub rx: Receiver<Vec<u8>>
 }
 
 pub fn validate(
@@ -231,6 +232,9 @@ pub fn validate(
         }
     }
 
+    // Creates Sender and Receiver to make event calls
+    let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
+
     let client: Client = Client::new(
         client_id,
         will_topic,
@@ -240,7 +244,8 @@ pub fn validate(
         password,
         socket_addr,
         connect_flags,
-        Some(Instant::now())
+        Some(Instant::now()),
+        tx
     );
 
     // Assemble return packet
@@ -249,5 +254,5 @@ pub fn validate(
     let connack_packet: [u8; 4] = [32, 2, session_present_byte, connect_return_code];
 
     // Return newly assembled return packet
-    return Ok(Response { return_packet: connack_packet, client });
+    return Ok(Response { return_packet: connack_packet, client, rx });
 }

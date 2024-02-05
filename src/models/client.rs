@@ -1,7 +1,11 @@
 use std::collections::HashSet;
 use std::hash::{ Hash, Hasher };
-use std::net::SocketAddr;
+use std::io::Write;
+use std::net::{SocketAddr, TcpStream};
+use std::thread;
 use std::time::Instant;
+use std::sync::mpsc::Sender;
+
 
 use super::flags::ConnectFlags;
 use super::topicfilter::Topicfilter;
@@ -19,10 +23,13 @@ pub struct Client {
     pub socket_addr: SocketAddr,
     pub connect_flags: ConnectFlags,
     pub last_packet_received: Option<Instant>,
+    pub tx: Sender<Vec<u8>>,
 }
 
 // Implement Eq, PartialEq, and Hash for the Client struct
 impl Eq for Client {}
+
+
 
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
@@ -74,8 +81,10 @@ impl Client {
         password: String,
         socket_addr: SocketAddr,
         connect_flags: ConnectFlags,
-        last_packet_received: Option<Instant>
+        last_packet_received: Option<Instant>,
+        tx: Sender<Vec<u8>>,
     ) -> Client {
+
         Client {
             id: client_id,
             will_topic,
@@ -88,6 +97,7 @@ impl Client {
             socket_addr,
             connect_flags,
             last_packet_received,
+            tx,
         }
     }
 

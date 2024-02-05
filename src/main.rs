@@ -143,6 +143,15 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                     // Create a new client from the response of connect::validate()
                                     let new_client: Client = response.client;
 
+                                    // Copy the stream to the event thread
+                                    let mut stream_clone = stream.try_clone().unwrap();
+                                    thread::spawn(move || {
+                                        for message in response.rx {
+                                            // Sends the message to the client
+                                            let _ = stream_clone.write(message.as_slice());
+                                        }
+                                    });
+
                                     // Access the clients vector within the mutex
                                     let mut clients: MutexGuard<'_, Vec<Client>> = clients
                                         .lock()
