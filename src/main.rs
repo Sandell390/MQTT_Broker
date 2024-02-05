@@ -78,85 +78,30 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                     1 => {
                         // Connect
                         if !has_first_packet_arrived {
+                            // Access the clients vector within the mutex
+                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+
                             match
                                 control_packet::connect::validate(
                                     buffer,
                                     packet_length,
-                                    socket_addr
+                                    socket_addr,
+                                    &mut clients
                                 )
                             {
                                 Ok(response) => {
-                                    if
-                                        response.return_packet != [32, 2, 0, 0] &&
-                                        response.return_packet != [32, 2, 1, 0]
-                                    {
-                                        println!(
-                                            "Connack not accepted {:?}",
-                                            response.return_packet
-                                        );
-
-                                        let _ = stream.shutdown(std::net::Shutdown::Both);
-                                        break;
-                                    }
-
                                     // Create a new client from the response of connect::validate()
-                                    let new_client: Client = response.client;
-
-                                    // Access the clients vector within the mutex
-                                    let mut clients: MutexGuard<'_, Vec<Client>> = clients
-                                        .lock()
-                                        .unwrap();
-
-                                    if
-                                        let Some(existing_client) = clients
-                                            .iter_mut()
-                                            .find(|c: &&mut Client| c.id == new_client.id)
-                                    {
-                                        if existing_client.is_connected {
-                                            // Reject the connection
-                                            let _ = stream.write(&[32, 2, 0, 2]); // Reject Identifier
-                                            let _ = stream.flush();
-
-                                            break; // Exit the loop without adding the client to the list
-                                        } else {
-                                            // Update the existing client to be connected
-                                            existing_client.will_topic = new_client.will_topic;
-                                            existing_client.will_message = new_client.will_message;
-                                            existing_client.is_connected = true;
-                                            existing_client.subscriptions =
-                                                new_client.subscriptions;
-                                            existing_client.keep_alive = new_client.keep_alive;
-                                            existing_client.username = new_client.username;
-                                            existing_client.password = new_client.password;
-                                            existing_client.socket_addr = socket_addr;
-                                            existing_client.connect_flags =
-                                                new_client.connect_flags;
-
-                                            // Set keep_alive
-                                            let _ = stream.set_read_timeout(
-                                                Some(
-                                                    Duration::from_secs(
-                                                        (new_client.keep_alive * 3) / 2
-                                                    )
-                                                )
-                                            );
-                                        }
-                                    } else {
-                                        // Set keep_alive
-                                        let _ = stream.set_read_timeout(
-                                            Some(
-                                                Duration::from_secs((new_client.keep_alive * 3) / 2)
-                                            )
-                                        );
-
-                                        // Add the new client to the list
-                                        clients.push(new_client);
-                                    }
+                                    let keep_alive: u64 = response.keep_alive;
 
                                     // Continue with handling the connection
                                     // Send response to the client
                                     let _ = stream.write(&response.return_packet);
                                     let _ = stream.flush();
+
+                                    // Set keep_alive
+                                    let _ = stream.set_read_timeout(
+                                        Some(Duration::from_secs(keep_alive))
+                                    );
 
                                     // DEBUG
                                     // Print information for each client
@@ -370,6 +315,7 @@ fn disconnect_client_by_socket_addr(
 
         // Call handle_disconnect on the client
         client.handle_disconnect();
+        println!("Disconnecting the client");
 
         // Update the client's socket_addr
         client.socket_addr = socket_addr;
