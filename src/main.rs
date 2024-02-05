@@ -419,6 +419,9 @@ fn disconnect_client_by_socket_addr(
         // Extract the client from the list
         let mut client: Client = clients.remove(index);
 
+        // Publish the will message to clients that have subscribed on the will topic
+        control_packet::publish::publish(clients, &client.will_topic, &client.will_message);
+
         // Call handle_disconnect on the client
         client.handle_disconnect();
 
