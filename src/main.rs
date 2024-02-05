@@ -82,7 +82,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                             let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
                             match
-                                control_packet::connect::validate(
+                                control_packet::connect::handle(
                                     buffer,
                                     packet_length,
                                     socket_addr,
@@ -233,10 +233,16 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                     12 => {
                         // PINGREQ
                         if has_first_packet_arrived {
-                            let _ = stream.write(&[0xd0, 0x00]);
-                            let _ = stream.flush();
-
-                            // Validation Logic Goes here, I think...
+                            match control_packet::ping::handle(buffer, packet_length) {
+                                Ok(return_packet) => {
+                                    // Send response to the client
+                                    let _ = stream.write(&return_packet);
+                                    let _ = stream.flush();
+                                }
+                                Err(err) => {
+                                    println!("{err}");
+                                }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -249,7 +255,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                             let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
                             // Validate reserved bits are not set
-                            match control_packet::disconnect::validate(buffer, packet_length) {
+                            match control_packet::disconnect::handle(buffer, packet_length) {
                                 Ok(_response) => {
                                     disconnect_client_by_socket_addr(
                                         &mut clients,

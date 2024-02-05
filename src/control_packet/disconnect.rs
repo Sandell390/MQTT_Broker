@@ -1,6 +1,6 @@
 use crate::common_fn;
 
-pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<&'static str, &'static str> {
+pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<&'static str, &'static str> {
     println!("MQTT Disconnection is being validated");
 
     let mut remaining_length: usize = 0;

@@ -1,4 +1,4 @@
-use std::{ net::SocketAddr, thread::current };
+use std::net::SocketAddr;
 
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
@@ -7,7 +7,7 @@ pub struct Response {
     pub keep_alive: u64,
 }
 
-pub fn validate(
+pub fn handle(
     buffer: [u8; 8192],
     packet_length: usize,
     socket_addr: SocketAddr,
