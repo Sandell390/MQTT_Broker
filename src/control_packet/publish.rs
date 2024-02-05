@@ -31,8 +31,11 @@ pub fn publish(clients: &mut Vec<Client>, topic_name: &str, topic_message: &str)
                 packet.push(byte);
             }
 
-            // LSB and MSB for topic message
+            // Packet ID
             packet.append(u16::try_from(10).unwrap().to_be_bytes().to_vec().as_mut());
+
+            // LSB and MSB for topic message
+            packet.append(u16::try_from(topic_message_bytes.len()).unwrap().to_be_bytes().to_vec().as_mut());
 
             // Puts all topic message bytes in the packet
             for byte in topic_message_bytes{
@@ -40,6 +43,7 @@ pub fn publish(clients: &mut Vec<Client>, topic_name: &str, topic_message: &str)
             }
 
             // Sends the packet to the client
+            println!("Publish packet: {:?}", packet);
             let _ = client.tx.send(packet);
         }
     }
