@@ -303,20 +303,20 @@ fn handle_connection(
                             // Validate reserved bits are not set
                             match control_packet::disconnect::handle(buffer, packet_length) {
                                 Ok(_response) => {
-                                    // disconnect_client_by_socket_addr(
-                                    //     &mut topics,
-                                    //     &mut clients,
-                                    //     socket_addr,
-                                    //     false
-                                    // );
+                                    disconnect_client_by_socket_addr(
+                                        &mut topics,
+                                        &mut clients,
+                                        socket_addr,
+                                        true
+                                    );
                                 }
                                 Err(_err) => {
-                                    // disconnect_client_by_socket_addr(
-                                    //     &mut topics,
-                                    //     &mut clients,
-                                    //     socket_addr,
-                                    //     false
-                                    // );
+                                    disconnect_client_by_socket_addr(
+                                        &mut topics,
+                                        &mut clients,
+                                        socket_addr,
+                                        true
+                                    );
                                 }
                             }
 
