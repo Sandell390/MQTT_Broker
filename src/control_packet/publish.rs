@@ -1,7 +1,47 @@
 use crate::models::{ topic::Topic, client::Client };
 use crate::common_fn;
 use rand::Rng;
+//**********************************************************
+// TO-DO: Implement handle for incoming publish packets
+// pub fn handle() {
+// Code goes here, I think?
+// }
+//**********************************************************
 
+/// Publishes a message to clients subscribed to the specified topic.
+///
+/// # Arguments
+///
+/// * `topics` - A mutable reference to the vector of topics.
+/// * `clients` - A mutable reference to the vector of clients.
+/// * `topic_name` - The name of the topic to which the message is published.
+/// * `topic_message` - The message to be published.
+/// * `dup` - A boolean indicating if the message is a duplicate.
+/// * `qos` - The quality of service level of the message.
+/// * `retain` - A boolean indicating if the message should be retained by the broker.
+///
+/// # Description
+///
+/// This function publishes a message to clients subscribed to the specified topic. It iterates
+/// over the list of topics to find the matching topic by name. Then, it iterates over the list
+/// of clients to find clients subscribed to the topic. For each subscribed client, it creates
+/// and sends a packet containing the message to be published. The packet is constructed based
+/// on the specified quality of service level, whether the message is a duplicate, and if it
+/// should be retained by the broker.
+///
+/// # Examples
+///
+/// ```
+/// let mut topics = vec![Topic::new("topic1")];
+/// let mut clients = vec![Client::new("client1", "", "", 0, "", "", SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0), tx.clone(), ConnectFlags::default())];
+/// let topic_name = "topic1";
+/// let topic_message = "message";
+/// let dup = false;
+/// let qos = 0;
+/// let retain = false;
+///
+/// publish(&mut topics, &mut clients, topic_name, topic_message, &dup, &qos, &retain);
+/// ```
 pub fn publish(
     topics: &mut Vec<Topic>,
     clients: &mut Vec<Client>,
@@ -53,19 +93,15 @@ pub fn publish(
                     packet.push(0);
                     packet.append(&mut topic_name_bytes);
 
-                    if qos == &1 || qos == &2{
+                    if qos == &1 || qos == &2 {
                         packet.append(
                             u16::try_from(packet_id).unwrap().to_be_bytes().to_vec().as_mut()
                         );
-    
                     }
 
                     packet.append(&mut topic_message_bytes);
 
-                
-                    packet[1] = u8
-                                     ::try_from(packet.len() - 2)
-                                   .unwrap();
+                    packet[1] = u8::try_from(packet.len() - 2).unwrap();
 
                     println!("Publish: {:?}", packet);
 
@@ -75,55 +111,3 @@ pub fn publish(
         }
     }
 }
-
-// for client in clients.iter() {
-//     // Converts the topic message to bytes
-//     let topic_message_bytes: Vec<u8> = topic_message.as_bytes().to_vec();
-
-//     // Converts the topic name to bytes
-//     let topic_name_bytes: Vec<u8> = topic_name.as_bytes().to_vec();
-
-//     // Checks if there are any clients that subscribs on the given topic name
-//     if true {
-//         // Packet to send the client
-//         let mut packet: Vec<u8> = Vec::new();
-
-//         // Packet Type Publish: 3 + Publish flags (Needs to be set!) TODO: get publish flags
-//         packet.push(48);
-
-//         // Remaning packet lenght
-//         packet.push(
-//             u8
-//                 ::try_from(2 + topic_name_bytes.len() + 2 + topic_message_bytes.len() + 2)
-//                 .unwrap()
-//         );
-
-//         // LSB and MSB for topic name
-//         packet.append(
-//             u16::try_from(topic_name_bytes.len()).unwrap().to_be_bytes().to_vec().as_mut()
-//         );
-
-//         // Puts all topic name bytes in the packet
-//         for byte in topic_name_bytes {
-//             packet.push(byte);
-//         }
-
-//         // Packet ID
-//         packet.append(u16::try_from(10).unwrap().to_be_bytes().to_vec().as_mut());
-
-//         // LSB and MSB for topic message
-//         packet.append(
-//             u16::try_from(topic_message_bytes.len()).unwrap().to_be_bytes().to_vec().as_mut()
-//         );
-
-//         // Puts all topic message bytes in the packet
-//         for byte in topic_message_bytes {
-//             packet.push(byte);
-//         }
-
-//         // Sends the packet to the client
-//         println!("Publish packet: {:?}", packet);
-//         let _ = client.tx.send(packet);
-//     }
-// }
-// }

@@ -7,6 +7,61 @@ pub struct Response {
     pub keep_alive: u64,
 }
 
+/// Handles the MQTT connection by validating the incoming buffer and assembling a response packet.
+///
+/// # Arguments
+///
+/// * `buffer` - The buffer containing the incoming packet data.
+/// * `packet_length` - The length of the packet in the buffer.
+/// * `socket_addr` - The socket address of the client.
+/// * `clients` - A mutable reference to the vector of clients.
+/// * `tx` - The sender channel for transmitting data.
+///
+/// # Returns
+///
+/// A Result containing the assembled response packet and the calculated keep-alive time,
+/// or an error message if the packet is invalid.
+///
+/// # Description
+///
+/// This function handles the MQTT connection by validating the incoming buffer data and
+/// assembling a response packet. It first decodes the remaining length of the packet and checks
+/// for the validity of the protocol name and level.
+///
+/// Then, it reads the connect flags and extracts individual flags to determine various parameters like QoS level, clean session, will flag, etc.
+/// Next, it reads the client identifier, will topic, will message, username, and password if
+/// present in the buffer.
+///
+/// Based on the provided data, it creates a new client or updates an existing client in the list of clients.
+///
+/// Finally, it assembles the response packet (CONNACK) and returns it along with the calculated keep-alive time.
+///
+/// # Errors
+///
+/// Returns an error if the packet is invalid or if the CONNACK packet is not accepted.
+///
+/// # Examples
+///
+/// ```
+/// let buffer: [u8; 8192]; // Read from a tcp stream
+///
+/// match control_packet::connect::handle(buffer, packet_length, socket_addr, &mut clients, tx.clone())
+/// {
+///     Ok(response) => {
+///         let keep_alive: u64 = response.keep_alive;
+///
+///         // Send response to the client
+///         _ = tx.send(response.return_packet.to_vec());
+///
+///         // Set keep_alive
+///         let _ = stream.set_read_timeout(Some(Duration::from_secs(keep_alive)));
+///     }
+///     Err(err) => {
+///         println!("An error has occured: {}", err);
+///         break;
+///     }
+/// }
+/// ```
 pub fn handle(
     buffer: [u8; 8192],
     packet_length: usize,

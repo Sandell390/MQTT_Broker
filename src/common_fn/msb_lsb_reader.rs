@@ -1,3 +1,40 @@
+/// Retrieves values from the buffer, by decoding the MSB & LSB bytes, and reading the rest as UTF8 Encoded Strings.
+///
+/// # Arguments
+///
+/// * `buffer` - A reference to a byte slice containing the data to read.
+/// * `current_index` - The current index within the buffer to start reading from.
+/// * `read_string_value` - A boolean indicating whether to read a string value from the buffer.
+///
+/// # Returns
+///
+/// A Result containing a tuple with the following elements:
+/// - The updated index after reading the values.
+/// - The string value read from the buffer, if `read_string_value` is true.
+/// - The stop index indicating the end of the read values.
+///
+/// # Errors
+///
+/// Returns an error if the buffer is too small to read the MSB and LSB or the string value.
+///
+/// # Description
+///
+/// This function retrieves values from the buffer according to the provided specifications.
+/// It first checks if the buffer has enough bytes to read the MSB (most significant byte) and LSB (least significant byte).
+/// Then, it calculates the decimal value from the MSB and LSB, representing the length of the subsequent string value.
+/// If `read_string_value` is true, it checks if the buffer has enough bytes to read the string value and proceeds to
+/// read the string value character by character. Finally, it returns a tuple containing the decimal value, the string value
+/// (if read), and the stop index indicating the end of the read values.
+///
+/// # Examples
+///
+/// ```
+/// let buffer = &[0x00, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f]; // Byte slice with data
+/// let (updated_index, string_value, stop_index) = get_values(buffer, 0, true).unwrap();
+/// assert_eq!(updated_index, 7);
+/// assert_eq!(string_value, "Hello");
+/// assert_eq!(stop_index, 7);
+/// ```
 pub fn get_values(
     buffer: &[u8],
     mut current_index: usize,

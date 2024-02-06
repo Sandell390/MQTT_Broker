@@ -229,7 +229,7 @@ fn handle_connection(
                             let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
 
                             // Validation Logic Goes here, I think...
-                            match control_packet::subcribe::validate(buffer, packet_length) {
+                            match control_packet::subcribe::handle(buffer, packet_length) {
                                 Ok(sub_packet) => {
                                     if
                                         let Some(index) = clients
@@ -267,7 +267,7 @@ fn handle_connection(
                             let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
                             // Validation Logic Goes here, I think...
-                            match control_packet::unsubcribe::validate(buffer, packet_length) {
+                            match control_packet::unsubcribe::handle(buffer, packet_length) {
                                 Ok(unsub_packet) => {
                                     if
                                         let Some(index) = clients
