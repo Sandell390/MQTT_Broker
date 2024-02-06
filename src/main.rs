@@ -178,7 +178,40 @@ fn handle_connection(
                     3 => {
                         // PUBLISH
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_publish(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -187,7 +220,40 @@ fn handle_connection(
                     4 => {
                         // PUBACK
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_puback(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -196,7 +262,40 @@ fn handle_connection(
                     5 => {
                         // PUBREC
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_pubrec(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -205,7 +304,40 @@ fn handle_connection(
                     6 => {
                         // PUBREL
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_pubrel(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -214,7 +346,40 @@ fn handle_connection(
                     7 => {
                         // PUBCOMP
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_pubcomp(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -229,7 +394,6 @@ fn handle_connection(
                             // Access the topic Vector
                             let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
 
-                            // Validation Logic Goes here, I think...
                             match control_packet::subcribe::handle(buffer, packet_length) {
                                 Ok(sub_packet) => {
                                     if
@@ -263,11 +427,9 @@ fn handle_connection(
                     10 => {
                         // UNSUBSCRIBE
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
                             // Access the clients vector within the mutex
                             let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
-                            // Validation Logic Goes here, I think...
                             match control_packet::unsubcribe::handle(buffer, packet_length) {
                                 Ok(unsub_packet) => {
                                     if
@@ -460,8 +622,8 @@ fn disconnect_client_by_socket_addr(
 /// let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 /// // Access the topic Vector
 /// let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
-/// // Validation Logic Goes here, I think...
-/// match control_packet::subcribe::validate(buffer, packet_length) {
+///
+/// match control_packet::subcribe::handle(buffer, packet_length) {
 ///     Ok(sub_packet) => {
 ///         if
 ///             let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr)
@@ -509,7 +671,7 @@ fn add_client_to_topic_list(
 /// ```
 /// // Access the clients vector within the mutex
 /// let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
-/// match control_packet::unsubcribe::validate(buffer, packet_length) {
+/// match control_packet::unsubcribe::handle(buffer, packet_length) {
 ///     Ok(unsub_packet) => {
 ///         if
 ///             let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr)

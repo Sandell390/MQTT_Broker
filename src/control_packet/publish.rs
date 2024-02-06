@@ -1,12 +1,30 @@
 use crate::models::{ topic::Topic, client::Client };
 use crate::common_fn;
 use rand::Rng;
-//**********************************************************
-// TO-DO: Implement handle for incoming publish packets
-// pub fn handle() {
-// Code goes here, I think?
-// }
-//**********************************************************
+
+//********************************************************,
+//  TO-DO: Implement handle for incoming publish packets  |
+//********************************************************´
+
+pub fn handle_publish() {
+    // Code goes here, I think?
+}
+
+pub fn handle_puback() {
+    // Code goes here, I think?
+}
+
+pub fn handle_pubrec() {
+    // Code goes here, I think?
+}
+
+pub fn handle_pubrel() {
+    // Code goes here, I think?
+}
+
+pub fn handle_pubcomp() {
+    // Code goes here, I think?
+}
 
 /// Publishes a message to clients subscribed to the specified topic.
 ///
