@@ -1,3 +1,4 @@
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::io::{ Read, Write };
 use std::net::{ SocketAddr, TcpListener, TcpStream };
@@ -55,6 +56,21 @@ fn handle_connection(
     clients: Arc<Mutex<Vec<Client>>>,
     topics: Arc<Mutex<Vec<Topic>>>
 ) {
+
+    let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
+
+    let mut stream_clone: TcpStream = stream.try_clone().unwrap();
+    thread::spawn(move || {
+        for message in rx {
+            // Sends the message to the client
+            println!("Sending Publish pakcet");
+            let _ = stream_clone.write(message.as_slice());
+            let _ = stream_clone.flush();
+
+        }
+    });
+    
+
     let socket_addr: SocketAddr = stream.peer_addr().unwrap();
     let _ = stream.set_read_timeout(Some(Duration::from_secs(0)));
 
@@ -95,24 +111,16 @@ fn handle_connection(
                                     buffer,
                                     packet_length,
                                     socket_addr,
-                                    &mut clients
+                                    &mut clients,
+                                    tx.clone()
                                 )
                             {
                                 Ok(response) => {
                                     let keep_alive: u64 = response.keep_alive;
-                                    // Copy the stream to the event thread
-                                    let mut stream_clone = stream.try_clone().unwrap();
-                                    thread::spawn(move || {
-                                        for message in response.rx {
-                                            // Sends the message to the client
-                                            let _ = stream_clone.write(message.as_slice());
-                                        }
-                                    });
 
                                     // Continue with handling the connection
                                     // Send response to the client
-                                    let _ = stream.write(&response.return_packet);
-                                    let _ = stream.flush();
+                                    tx.send(response.return_packet.to_vec());
 
                                     // Set keep_alive
                                     let _ = stream.set_read_timeout(
@@ -209,7 +217,8 @@ fn handle_connection(
                                         }
                                     }
 
-                                    let _ = stream.write(sub_packet.return_packet.as_slice());
+                                    tx.send(sub_packet.return_packet);
+
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -250,7 +259,9 @@ fn handle_connection(
                                         }
                                     }
 
-                                    let _ = stream.write(unsub_packet.return_packet.as_slice());
+
+                                    tx.send(unsub_packet.return_packet);
+
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -268,8 +279,8 @@ fn handle_connection(
                             match control_packet::ping::handle(buffer, packet_length) {
                                 Ok(return_packet) => {
                                     // Send response to the client
-                                    let _ = stream.write(&return_packet);
-                                    let _ = stream.flush();
+
+                                    tx.send(return_packet.to_vec());
                                 }
                                 Err(err) => {
                                     println!("{err}");
@@ -292,20 +303,20 @@ fn handle_connection(
                             // Validate reserved bits are not set
                             match control_packet::disconnect::handle(buffer, packet_length) {
                                 Ok(_response) => {
-                                    disconnect_client_by_socket_addr(
-                                        &mut topics,
-                                        &mut clients,
-                                        socket_addr,
-                                        true
-                                    );
+                                    // disconnect_client_by_socket_addr(
+                                    //     &mut topics,
+                                    //     &mut clients,
+                                    //     socket_addr,
+                                    //     false
+                                    // );
                                 }
                                 Err(_err) => {
-                                    disconnect_client_by_socket_addr(
-                                        &mut topics,
-                                        &mut clients,
-                                        socket_addr,
-                                        true
-                                    );
+                                    // disconnect_client_by_socket_addr(
+                                    //     &mut topics,
+                                    //     &mut clients,
+                                    //     socket_addr,
+                                    //     false
+                                    // );
                                 }
                             }
 
@@ -346,7 +357,6 @@ fn handle_connection(
     for client in clients.iter() {
         println!("Client: {:?}", client);
     }
-
     let _ = stream.shutdown(std::net::Shutdown::Both);
 }
 

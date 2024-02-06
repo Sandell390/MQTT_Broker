@@ -45,30 +45,29 @@ pub fn publish(
 
                     let packet_id: u16 = rand::thread_rng().gen_range(1..=u16::MAX);
 
-                    let mut topic_message_bytes = common_fn::msb_lsb_creater
-                        ::create_packet(topic_message)
-                        .unwrap();
+                    let mut topic_message_bytes = topic_message.as_bytes().to_vec();
 
                     packet.push(first_byte);
 
                     // Sets the remaining length later
                     packet.push(0);
                     packet.append(&mut topic_name_bytes);
-                    packet.append(
-                        u16::try_from(packet_id).unwrap().to_be_bytes().to_vec().as_mut()
-                    );
+
+                    if qos == &1 || qos == &2{
+                        packet.append(
+                            u16::try_from(packet_id).unwrap().to_be_bytes().to_vec().as_mut()
+                        );
+    
+                    }
 
                     packet.append(&mut topic_message_bytes);
 
-                    let mut packet_copy: Vec<u8> = Vec::new();
-                    packet_copy.extend_from_slice(&packet[3..]);
-                    let remaining_length: u8 = common_fn::bit_operations
-                        ::decode_remaining_length(packet_copy.as_slice())
-                        .unwrap() as u8;
+                
+                    packet[1] = u8
+                                     ::try_from(packet.len() - 2)
+                                   .unwrap();
 
-                    packet[1] = remaining_length;
-
-                    println!("{:?}", packet);
+                    println!("Publish: {:?}", packet);
 
                     let _ = client.tx.send(packet);
                 };

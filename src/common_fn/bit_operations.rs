@@ -2,7 +2,7 @@
 pub fn decode_remaining_length(mut bytes: &[u8]) -> Result<usize, &'static str> {
     let mut multiplier: u32 = 1;
     let mut value: u32 = 0;
-
+    
     bytes = &bytes[1..]; // Skip first Byte, as this is the control packet / packet type
 
     loop {
