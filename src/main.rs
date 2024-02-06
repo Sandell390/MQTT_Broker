@@ -185,7 +185,7 @@ fn handle_connection(
                         // SUBSCRIBE
                         if has_first_packet_arrived {
                             // Access the clients vector within the mutex
-                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+                            let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
                             // Access the topic Vector
                             let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
@@ -226,7 +226,7 @@ fn handle_connection(
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                             // Access the clients vector within the mutex
-                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+                            let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
                             // Validation Logic Goes here, I think...
                             match control_packet::unsubcribe::validate(buffer, packet_length) {

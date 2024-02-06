@@ -1,5 +1,4 @@
 use std::hash::{ Hash, Hasher };
-use super::client::Client;
 #[derive(Debug)]
 pub struct Topic {
     pub topic_name: String,

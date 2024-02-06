@@ -15,7 +15,7 @@ pub fn publish(
         if topic_name == topic.topic_name {
             for client in clients.iter() {
                 if
-                    let Some(client_index) = topic.client_ids
+                    let Some(_client_index) = topic.client_ids
                         .iter()
                         .position(|c: &(String, u8)| &c.0 == &client.id)
                 {
@@ -39,8 +39,6 @@ pub fn publish(
                         first_byte |= 1 << 0;
                     }
 
-                    let mut remaining_length: u8 = 0;
-
                     let mut topic_name_bytes = common_fn::msb_lsb_creater
                         ::create_packet(topic_name)
                         .unwrap();
@@ -52,17 +50,19 @@ pub fn publish(
                         .unwrap();
 
                     packet.push(first_byte);
+
                     // Sets the remaining length later
                     packet.push(0);
                     packet.append(&mut topic_name_bytes);
                     packet.append(
                         u16::try_from(packet_id).unwrap().to_be_bytes().to_vec().as_mut()
                     );
+
                     packet.append(&mut topic_message_bytes);
 
                     let mut packet_copy: Vec<u8> = Vec::new();
                     packet_copy.extend_from_slice(&packet[3..]);
-                    remaining_length = common_fn::bit_operations
+                    let remaining_length: u8 = common_fn::bit_operations
                         ::decode_remaining_length(packet_copy.as_slice())
                         .unwrap() as u8;
 
