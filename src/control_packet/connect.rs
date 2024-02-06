@@ -1,4 +1,4 @@
-use std::{ net::SocketAddr, sync::mpsc::{channel, Sender, Receiver}};
+use std::{ net::SocketAddr, sync::mpsc::Sender };
 
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
@@ -211,7 +211,7 @@ pub fn handle(
         password,
         socket_addr,
         tx.clone(),
-        connect_flags,
+        connect_flags
     );
 
     // Set to 1.5 times the specified amount, AFTER a new Client is created.

@@ -1,4 +1,4 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{ channel, Receiver, Sender };
 use std::thread;
 use std::io::{ Read, Write };
 use std::net::{ SocketAddr, TcpListener, TcpStream };
@@ -56,7 +56,6 @@ fn handle_connection(
     clients: Arc<Mutex<Vec<Client>>>,
     topics: Arc<Mutex<Vec<Topic>>>
 ) {
-
     let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
 
     let mut stream_clone: TcpStream = stream.try_clone().unwrap();
@@ -66,10 +65,8 @@ fn handle_connection(
             println!("Sending Publish pakcet");
             let _ = stream_clone.write(message.as_slice());
             let _ = stream_clone.flush();
-
         }
     });
-    
 
     let socket_addr: SocketAddr = stream.peer_addr().unwrap();
     let _ = stream.set_read_timeout(Some(Duration::from_secs(0)));
@@ -120,7 +117,7 @@ fn handle_connection(
 
                                     // Continue with handling the connection
                                     // Send response to the client
-                                    tx.send(response.return_packet.to_vec());
+                                    _ = tx.send(response.return_packet.to_vec());
 
                                     // Set keep_alive
                                     let _ = stream.set_read_timeout(
@@ -217,8 +214,7 @@ fn handle_connection(
                                         }
                                     }
 
-                                    tx.send(sub_packet.return_packet);
-
+                                    _ = tx.send(sub_packet.return_packet);
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -259,9 +255,7 @@ fn handle_connection(
                                         }
                                     }
 
-
-                                    tx.send(unsub_packet.return_packet);
-
+                                    _ = tx.send(unsub_packet.return_packet);
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -280,7 +274,7 @@ fn handle_connection(
                                 Ok(return_packet) => {
                                     // Send response to the client
 
-                                    tx.send(return_packet.to_vec());
+                                    _ = tx.send(return_packet.to_vec());
                                 }
                                 Err(err) => {
                                     println!("{err}");
