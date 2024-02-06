@@ -1,3 +1,4 @@
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::io::{ Read, Write };
 use std::net::{ SocketAddr, TcpListener, TcpStream };
@@ -6,6 +7,7 @@ use std::time::Duration;
 use local_ip_address::local_ip;
 
 use crate::models::client::Client;
+use crate::models::topic::Topic;
 
 mod control_packet;
 mod common_fn;
@@ -23,6 +25,9 @@ fn main() {
     // Print a message indicating that the MQTT broker is listening
     println!("MQTT broker listening on {}:1883...", my_local_ip);
 
+    // Create a mutex-protected topic Vector
+    let topics: Arc<Mutex<Vec<Topic>>> = Arc::new(Mutex::new(Vec::new()));
+
     // Create a mutex-protected clients vector
     let clients: Arc<Mutex<Vec<Client>>> = Arc::new(Mutex::new(Vec::new()));
 
@@ -31,10 +36,11 @@ fn main() {
             Ok(stream) => {
                 // Clone clients for each thread
                 let clients_clone: Arc<Mutex<Vec<Client>>> = Arc::clone(&clients);
+                let topics_clone: Arc<Mutex<Vec<Topic>>> = Arc::clone(&topics);
 
                 // Spawn a new thread to handle the client connection
                 thread::spawn(move || {
-                    handle_connection(stream, clients_clone); // Handle the client connection
+                    handle_connection(stream, clients_clone, topics_clone); // Handle the client connection
                 });
             }
             Err(err) => {
@@ -45,7 +51,26 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
+fn handle_connection(
+    mut stream: TcpStream,
+    clients: Arc<Mutex<Vec<Client>>>,
+    topics: Arc<Mutex<Vec<Topic>>>
+) {
+
+    let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
+
+    let mut stream_clone: TcpStream = stream.try_clone().unwrap();
+    thread::spawn(move || {
+        for message in rx {
+            // Sends the message to the client
+            println!("Sending Publish pakcet");
+            let _ = stream_clone.write(message.as_slice());
+            let _ = stream_clone.flush();
+
+        }
+    });
+    
+
     let socket_addr: SocketAddr = stream.peer_addr().unwrap();
     let _ = stream.set_read_timeout(Some(Duration::from_secs(0)));
 
@@ -86,17 +111,16 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                     buffer,
                                     packet_length,
                                     socket_addr,
-                                    &mut clients
+                                    &mut clients,
+                                    tx.clone()
                                 )
                             {
                                 Ok(response) => {
-                                    // Create a new client from the response of connect::validate()
                                     let keep_alive: u64 = response.keep_alive;
 
                                     // Continue with handling the connection
                                     // Send response to the client
-                                    let _ = stream.write(&response.return_packet);
-                                    let _ = stream.flush();
+                                    tx.send(response.return_packet.to_vec());
 
                                     // Set keep_alive
                                     let _ = stream.set_read_timeout(
@@ -169,7 +193,10 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                         // SUBSCRIBE
                         if has_first_packet_arrived {
                             // Access the clients vector within the mutex
-                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+                            let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+
+                            // Access the topic Vector
+                            let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
 
                             // Validation Logic Goes here, I think...
                             match control_packet::subcribe::validate(buffer, packet_length) {
@@ -181,11 +208,17 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                     {
                                         // Adding topic filters to the client
                                         for topicfilter in sub_packet.topic_qos_pair {
-                                            clients[index].add_subscription(topicfilter);
+                                            //clients[index].add_subscription(topicfilter);
+                                            add_client_topic_list(
+                                                &mut topics,
+                                                clients[index].id.clone(),
+                                                topicfilter
+                                            );
                                         }
                                     }
 
-                                    let _ = stream.write(sub_packet.return_packet.as_slice());
+                                    tx.send(sub_packet.return_packet);
+
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -202,7 +235,7 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                         if has_first_packet_arrived {
                             // Validation Logic Goes here, I think...
                             // Access the clients vector within the mutex
-                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+                            let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
                             // Validation Logic Goes here, I think...
                             match control_packet::unsubcribe::validate(buffer, packet_length) {
@@ -212,13 +245,23 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                                             .iter()
                                             .position(|c: &Client| c.socket_addr == socket_addr)
                                     {
+                                        // Access the topic Vector
+                                        let mut topics: MutexGuard<'_, Vec<Topic>> = topics
+                                            .lock()
+                                            .unwrap();
                                         // Removing topic filters to the client
                                         for topicfilter in unsub_packet.topic_qos_pair {
-                                            clients[index].remove_subscription(topicfilter);
+                                            remove_client_topic_list(
+                                                &mut topics,
+                                                clients[index].id.clone(),
+                                                topicfilter
+                                            );
                                         }
                                     }
 
-                                    let _ = stream.write(unsub_packet.return_packet.as_slice());
+
+                                    tx.send(unsub_packet.return_packet);
+
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -236,8 +279,8 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                             match control_packet::ping::handle(buffer, packet_length) {
                                 Ok(return_packet) => {
                                     // Send response to the client
-                                    let _ = stream.write(&return_packet);
-                                    let _ = stream.flush();
+
+                                    tx.send(return_packet.to_vec());
                                 }
                                 Err(err) => {
                                     println!("{err}");
@@ -254,21 +297,26 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
                             // Access the clients vector within the mutex
                             let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
+                            // Access the topic Vector
+                            let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
+
                             // Validate reserved bits are not set
                             match control_packet::disconnect::handle(buffer, packet_length) {
                                 Ok(_response) => {
-                                    disconnect_client_by_socket_addr(
-                                        &mut clients,
-                                        socket_addr,
-                                        true
-                                    );
+                                    // disconnect_client_by_socket_addr(
+                                    //     &mut topics,
+                                    //     &mut clients,
+                                    //     socket_addr,
+                                    //     false
+                                    // );
                                 }
                                 Err(_err) => {
-                                    disconnect_client_by_socket_addr(
-                                        &mut clients,
-                                        socket_addr,
-                                        true
-                                    );
+                                    // disconnect_client_by_socket_addr(
+                                    //     &mut topics,
+                                    //     &mut clients,
+                                    //     socket_addr,
+                                    //     false
+                                    // );
                                 }
                             }
 
@@ -297,7 +345,10 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
     // Access the clients vector within the mutex
     let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
-    disconnect_client_by_socket_addr(&mut clients, socket_addr, false);
+    // Access the topics vector within the mutex
+    let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
+
+    disconnect_client_by_socket_addr(&mut topics, &mut clients, socket_addr, false);
 
     println!("Client disconnected: {}", socket_addr);
 
@@ -306,11 +357,11 @@ fn handle_connection(mut stream: TcpStream, clients: Arc<Mutex<Vec<Client>>>) {
     for client in clients.iter() {
         println!("Client: {:?}", client);
     }
-
     let _ = stream.shutdown(std::net::Shutdown::Both);
 }
 
 fn disconnect_client_by_socket_addr(
+    topics: &mut Vec<Topic>,
     clients: &mut Vec<Client>,
     socket_addr: SocketAddr,
     discard_will_msg: bool
@@ -318,6 +369,18 @@ fn disconnect_client_by_socket_addr(
     if let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr) {
         // Extract the client from the list
         let mut client: Client = clients.remove(index);
+
+        // Publish the will message to clients that have subscribed on the will topic
+        // TO-DO: FIX
+        control_packet::publish::publish(
+            topics,
+            clients,
+            &client.will_topic,
+            &client.will_message,
+            &false,
+            &client.connect_flags.will_qos_flag,
+            &client.connect_flags.will_retain_flag
+        );
 
         // Call handle_disconnect on the client
         client.handle_disconnect();
@@ -336,5 +399,32 @@ fn disconnect_client_by_socket_addr(
         println!("Client found and updated.");
     } else {
         println!("Client not found.");
+    }
+}
+
+fn add_client_topic_list(topics: &mut Vec<Topic>, client_id: String, topic_filter: (String, u8)) {
+    if let Some(index) = topics.iter().position(|t: &Topic| t.topic_name == topic_filter.0) {
+        topics[index].client_ids.push((client_id, topic_filter.1));
+    } else {
+        let mut new_topic: Topic = Topic::new(topic_filter.0);
+
+        new_topic.client_ids.push((client_id, topic_filter.1));
+        topics.push(new_topic);
+    }
+}
+
+fn remove_client_topic_list(
+    topics: &mut Vec<Topic>,
+    client_id: String,
+    topic_filter: (String, u8)
+) {
+    if let Some(index) = topics.iter().position(|t: &Topic| t.topic_name == topic_filter.0) {
+        if
+            let Some(client_index) = topics[index].client_ids
+                .iter()
+                .position(|c: &(String, u8)| &c.0 == &client_id)
+        {
+            topics[index].client_ids.remove(client_index);
+        }
     }
 }

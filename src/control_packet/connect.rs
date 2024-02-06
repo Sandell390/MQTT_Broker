@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{ net::SocketAddr, sync::mpsc::{channel, Sender, Receiver}};
 
 use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
@@ -11,7 +11,8 @@ pub fn handle(
     buffer: [u8; 8192],
     packet_length: usize,
     socket_addr: SocketAddr,
-    clients: &mut Vec<Client>
+    clients: &mut Vec<Client>,
+    tx: Sender<Vec<u8>>
 ) -> Result<Response, &'static str> {
     println!("MQTT Connection is being validated");
 
@@ -209,7 +210,8 @@ pub fn handle(
         username,
         password,
         socket_addr,
-        connect_flags
+        tx.clone(),
+        connect_flags,
     );
 
     // Set to 1.5 times the specified amount, AFTER a new Client is created.

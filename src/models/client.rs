@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 use std::hash::{ Hash, Hasher };
 use std::net::SocketAddr;
+use std::sync::mpsc::Sender;
 
 use super::flags::ConnectFlags;
-use super::topicfilter::Topfilter;
+use super::topic::Topic;
 
 #[derive(Debug)]
 pub struct Client {
@@ -11,12 +12,13 @@ pub struct Client {
     pub will_topic: String,
     pub will_message: String,
     pub is_connected: bool,
-    pub subscriptions: HashSet<Topfilter>,
+    pub subscriptions: HashSet<Topic>,
     pub keep_alive: u64,
     pub username: String,
     pub password: String,
     pub socket_addr: SocketAddr,
     pub connect_flags: ConnectFlags,
+    pub tx: Sender<Vec<u8>>,
 }
 
 // Implement Eq, PartialEq, and Hash for the Client struct
@@ -69,6 +71,7 @@ impl Client {
         username: String,
         password: String,
         socket_addr: SocketAddr,
+        tx: Sender<Vec<u8>>,
         connect_flags: ConnectFlags
     ) -> Client {
         Client {
@@ -82,25 +85,26 @@ impl Client {
             password,
             socket_addr,
             connect_flags,
+            tx,
         }
     }
 
-    // Method for adding a subscription
-    pub fn add_subscription(&mut self, topic_filter: Topfilter) {
-        // Remove the topic filter if the client already have it
-        self.subscriptions.remove(&topic_filter);
+    // // Method for adding a subscription
+    // pub fn add_subscription(&mut self, topic_filter: Topic) {
+    //     // Remove the topic filter if the client already have it
+    //     self.subscriptions.remove(&topic_filter);
 
-        // Implement code for handling a new subscription, and putting it into the client's subscription list
-        println!("Added topic: {} for {}", &topic_filter.topic_name, self.id);
-        self.subscriptions.insert(topic_filter);
-    }
+    //     // Implement code for handling a new subscription, and putting it into the client's subscription list
+    //     println!("Added topic: {} for {}", &topic_filter.topic_name, self.id);
+    //     self.subscriptions.insert(topic_filter);
+    // }
 
-    // Method for removing a subscription
-    pub fn remove_subscription(&mut self, topic_filter: Topfilter) {
-        // Implement code for removing a subscription from the client's subscription list
-        self.subscriptions.remove(&topic_filter);
-        println!("Removed topic: {} for {}", &topic_filter.topic_name, self.id);
-    }
+    // // Method for removing a subscription
+    // pub fn remove_subscription(&mut self, topic_filter: Topic) {
+    //     // Implement code for removing a subscription from the client's subscription list
+    //     self.subscriptions.remove(&topic_filter);
+    //     println!("Removed topic: {} for {}", &topic_filter.topic_name, self.id);
+    // }
 
     // // Method for handling will topic to publish on when the client disconnects
     // pub fn handle_will_topic(&self, topic: &str, payload: &[u8]) {
