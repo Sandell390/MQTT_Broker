@@ -108,6 +108,7 @@ fn handle_connection(
     println!("Client connected: {}", socket_addr);
 
     let mut has_first_packet_arrived: bool = false;
+    let mut discard_will_msg: bool = false;
 
     // Infinite loop to continuously read data from the client
     loop {
@@ -319,31 +320,15 @@ fn handle_connection(
                         }
                     }
                     14 => {
-                        // FUCK OFF! (Disconnect)
+                        // Disconnect
                         if has_first_packet_arrived {
-                            // Access the clients vector within the mutex
-                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
-
-                            // Access the topic Vector
-                            let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
-
                             // Validate reserved bits are not set
                             match control_packet::disconnect::handle(buffer, packet_length) {
                                 Ok(_response) => {
-                                    disconnect_client_by_socket_addr(
-                                        &mut topics,
-                                        &mut clients,
-                                        socket_addr,
-                                        true
-                                    );
+                                    discard_will_msg = true;
                                 }
                                 Err(_err) => {
-                                    disconnect_client_by_socket_addr(
-                                        &mut topics,
-                                        &mut clients,
-                                        socket_addr,
-                                        true
-                                    );
+                                    discard_will_msg = true;
                                 }
                             }
 
@@ -375,7 +360,7 @@ fn handle_connection(
     // Access the topics vector within the mutex
     let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
 
-    disconnect_client_by_socket_addr(&mut topics, &mut clients, socket_addr, false);
+    disconnect_client_by_socket_addr(&mut topics, &mut clients, socket_addr, discard_will_msg);
 
     println!("Client disconnected: {}", socket_addr);
 
