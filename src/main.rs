@@ -35,7 +35,7 @@ fn main() {
     // Print a message indicating that the MQTT broker is listening
     println!("MQTT broker listening on {}:1883...", my_local_ip);
 
-    // Create a mutex-protected topic Vector
+    // Create a mutex-protected topics Vector
     let topics: Arc<Mutex<Vec<Topic>>> = Arc::new(Mutex::new(Vec::new()));
 
     // Create a mutex-protected clients vector
