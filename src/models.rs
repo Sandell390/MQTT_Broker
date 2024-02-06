@@ -1,4 +1,4 @@
 pub mod client;
 pub mod flags;
-pub mod topicfilter;
+pub mod topic;
 pub mod sub_info;

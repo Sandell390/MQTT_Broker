@@ -4,7 +4,6 @@ use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
 
 pub struct Response {
     pub return_packet: [u8; 4],
-    pub rx: Receiver<Vec<u8>>,
     pub keep_alive: u64,
 }
 
@@ -12,7 +11,8 @@ pub fn handle(
     buffer: [u8; 8192],
     packet_length: usize,
     socket_addr: SocketAddr,
-    clients: &mut Vec<Client>
+    clients: &mut Vec<Client>,
+    tx: Sender<Vec<u8>>
 ) -> Result<Response, &'static str> {
     println!("MQTT Connection is being validated");
 
@@ -202,9 +202,6 @@ pub fn handle(
         }
     }
 
-    // Creates Sender and Receiver to make event calls
-    let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
-
     let client: Client = Client::new(
         client_id,
         will_topic,
@@ -213,7 +210,7 @@ pub fn handle(
         username,
         password,
         socket_addr,
-        tx,
+        tx.clone(),
         connect_flags,
     );
 
@@ -266,5 +263,5 @@ pub fn handle(
     }
 
     // Return newly assembled return packet
-    return Ok(Response { return_packet: connack_packet, keep_alive, rx });
+    return Ok(Response { return_packet: connack_packet, keep_alive });
 }
