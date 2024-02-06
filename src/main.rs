@@ -41,6 +41,7 @@ fn main() {
     // Create a mutex-protected clients vector
     let clients: Arc<Mutex<Vec<Client>>> = Arc::new(Mutex::new(Vec::new()));
 
+    // For each incoming connection -> Spawn a new thread to handle the client's connection, using the handle_connection function
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
