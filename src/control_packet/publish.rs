@@ -2,12 +2,97 @@ use crate::models::{ topic::Topic, client::Client };
 use crate::common_fn;
 use rand::Rng;
 
-//********************************************************,
-//  TO-DO: Implement handle for incoming publish packets  |
-//********************************************************´
+#[derive(Clone)]
+pub struct Response {
+    pub dup_flag: bool,
+    pub qos_level: u8,
+    pub retain_flag: bool,
+    pub packet_id: usize,
+    pub topic_name: String,
+    pub payload_message: String,
+}
 
-pub fn handle_publish() {
-    // Code goes here, I think?
+pub fn handle_publish(buffer: [u8; 8192], packet_length: usize) -> Result<Response, &'static str> {
+    println!("Handling publish packet from client");
+
+    // Check if each bit is set
+    let flag_3: bool = (&buffer[0] & (1 << 3)) != 0; // DUP Flag
+    let flag_2: bool = (&buffer[0] & (1 << 2)) != 0; // QoS 2 Flag
+    let flag_1: bool = (&buffer[0] & (1 << 1)) != 0; // QoS 1 Flag
+    let flag_0: bool = (&buffer[0] & (1 << 0)) != 0; // Retain Flag
+
+    let mut qos_level: u8 = 0;
+
+    // QoS 1 flag
+    if flag_1 {
+        qos_level = 1;
+    }
+
+    // QoS 2 flag
+    if flag_2 {
+        qos_level = 2;
+    }
+
+    if flag_1 && flag_2 {
+        return Err("Wrong QoS level specified");
+    }
+
+    let mut remaining_length: usize = 0;
+
+    match common_fn::bit_operations::decode_remaining_length(&buffer) {
+        Ok(value) => {
+            remaining_length = value;
+        }
+        Err(err) => println!("Error: {}", err),
+    }
+
+    let mut current_index: usize = packet_length - remaining_length;
+    let mut topic_name: String = String::new();
+    match common_fn::msb_lsb_reader::get_values(&buffer, current_index, true) {
+        Ok(response) => {
+            // Get the topic name
+            topic_name = response.1;
+
+            // Update current index
+            current_index = response.2;
+        }
+        Err(err) => {
+            println!("{}", err);
+        }
+    }
+
+    let mut packet_id: usize = 0;
+    match common_fn::msb_lsb_reader::get_values(&buffer, current_index, false) {
+        Ok(response) => {
+            // Get the packet identifier
+            packet_id = response.0;
+
+            // Update current index
+            current_index = response.2;
+        }
+        Err(err) => {
+            println!("{}", err);
+        }
+    }
+
+    let mut payload_message: String = String::new();
+
+    while current_index < packet_length {
+        payload_message.push(buffer[current_index] as u8 as char);
+        current_index += 1;
+    }
+
+    // Assemble return struct
+    let response: Response = Response {
+        dup_flag: flag_3,
+        qos_level,
+        retain_flag: flag_0,
+        packet_id,
+        topic_name,
+        payload_message,
+    };
+
+    return Ok(response);
 }
 
 pub fn handle_puback() {
@@ -123,7 +208,7 @@ pub fn publish(
 
                     println!("Publish: {:?}", packet);
 
-                    let _ = client.tx.send(packet);
+                    let _ = client.tx.send(Ok(packet));
                 };
             }
         }

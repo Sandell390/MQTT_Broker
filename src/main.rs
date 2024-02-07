@@ -7,6 +7,7 @@ use std::time::Duration;
 use local_ip_address::local_ip;
 
 use crate::models::client::Client;
+use crate::models::publish_queue_item::PublishQueueItem;
 use crate::models::topic::Topic;
 
 mod control_packet;
@@ -41,6 +42,9 @@ fn main() {
     // Create a mutex-protected clients vector
     let clients: Arc<Mutex<Vec<Client>>> = Arc::new(Mutex::new(Vec::new()));
 
+    // Create a mutex-protected publish_queue
+    let publish_queue: Arc<Mutex<Vec<PublishQueueItem>>> = Arc::new(Mutex::new(Vec::new()));
+
     // For each incoming connection -> Spawn a new thread to handle the client's connection, using the handle_connection function
     for stream in listener.incoming() {
         match stream {
@@ -48,10 +52,13 @@ fn main() {
                 // Clone clients for each thread
                 let clients_clone: Arc<Mutex<Vec<Client>>> = Arc::clone(&clients);
                 let topics_clone: Arc<Mutex<Vec<Topic>>> = Arc::clone(&topics);
+                let publish_queue_clone: Arc<Mutex<Vec<PublishQueueItem>>> = Arc::clone(
+                    &publish_queue
+                );
 
                 // Spawn a new thread to handle the client connection
                 thread::spawn(move || {
-                    handle_connection(stream, clients_clone, topics_clone); // Handle the client connection
+                    handle_connection(stream, clients_clone, topics_clone, publish_queue_clone); // Handle the client connection
                 });
             }
             Err(err) => {
@@ -87,17 +94,29 @@ fn main() {
 fn handle_connection(
     mut stream: TcpStream,
     clients: Arc<Mutex<Vec<Client>>>,
-    topics: Arc<Mutex<Vec<Topic>>>
+    topics: Arc<Mutex<Vec<Topic>>>,
+    publish_queue: Arc<Mutex<Vec<PublishQueueItem>>>
 ) {
-    let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
+    let (tx, rx): (
+        Sender<Result<Vec<u8>, &'static str>>,
+        Receiver<Result<Vec<u8>, &'static str>>,
+    ) = channel();
 
     let mut stream_clone: TcpStream = stream.try_clone().unwrap();
     thread::spawn(move || {
         for message in rx {
-            // Sends the message to the client
-            println!("Sending Publish pakcet");
-            let _ = stream_clone.write(message.as_slice());
-            let _ = stream_clone.flush();
+            match message {
+                Ok(response) => {
+                    // Sends the message to the client
+                    println!("Sending packet: {:?}", response.as_slice());
+                    let _ = stream_clone.write(response.as_slice());
+                    let _ = stream_clone.flush();
+                }
+                Err(_err) => {
+                    _ = stream_clone.shutdown(std::net::Shutdown::Both);
+                    break;
+                }
+            }
         }
     });
 
@@ -151,7 +170,7 @@ fn handle_connection(
 
                                     // Continue with handling the connection
                                     // Send response to the client
-                                    _ = tx.send(response.return_packet.to_vec());
+                                    _ = tx.send(Ok(response.return_packet.to_vec()));
 
                                     // Set keep_alive
                                     let _ = stream.set_read_timeout(
@@ -178,39 +197,123 @@ fn handle_connection(
                     3 => {
                         // PUBLISH
                         if has_first_packet_arrived {
-                            match
-                                control_packet::publish::handle_publish(
-                                    // buffer,
-                                    // packet_length,
-                                    // socket_addr,
-                                    // &mut clients,
-                                    // tx.clone()
-                                )
-                            {
-                                _ => todo!(),
-                                // Ok(response) => {
-                                //     let keep_alive: u64 = response.keep_alive;
+                            match control_packet::publish::handle_publish(buffer, packet_length) {
+                                Ok(response) => {
+                                    // Clone clients for each thread
+                                    let clients_clone: Arc<Mutex<Vec<Client>>> = Arc::clone(
+                                        &clients
+                                    );
+                                    let topics_clone: Arc<Mutex<Vec<Topic>>> = Arc::clone(&topics);
 
-                                //     // Continue with handling the connection
-                                //     // Send response to the client
-                                //     _ = tx.send(response.return_packet.to_vec());
+                                    // Access the clients vector within the mutex
+                                    let mut clients: MutexGuard<'_, Vec<Client>> = clients
+                                        .lock()
+                                        .unwrap();
 
-                                //     // Set keep_alive
-                                //     let _ = stream.set_read_timeout(
-                                //         Some(Duration::from_secs(keep_alive))
-                                //     );
+                                    // Access the topics vector within the mutex
+                                    let mut topics: MutexGuard<'_, Vec<Topic>> = topics
+                                        .lock()
+                                        .unwrap();
 
-                                //     // DEBUG
-                                //     // Print information for each client
-                                //     println!("Client List:");
-                                //     for client in clients.iter() {
-                                //         println!("Client: {:?}", client);
-                                //     }
-                                // }
-                                // Err(err) => {
-                                //     println!("An error has occured: {}", err);
-                                //     break;
-                                // }
+                                    // Check QoS
+                                    match response.qos_level {
+                                        0 => {
+                                            if response.dup_flag {
+                                                break;
+                                            }
+
+                                            // Publish to subscribers
+                                            control_packet::publish::publish(
+                                                &mut topics,
+                                                &mut clients,
+                                                &response.topic_name,
+                                                &response.payload_message,
+                                                &false,
+                                                &response.qos_level,
+                                                &response.retain_flag
+                                            );
+                                        }
+                                        1 => {
+                                            let publish_tx_clone: Sender<
+                                                Result<Vec<u8>, &str>
+                                            > = tx.clone();
+
+                                            let response_clone: control_packet::publish::Response = response.clone();
+
+                                            thread::spawn(move || {
+                                                // Access the clients vector within the mutex
+                                                let mut clients: MutexGuard<
+                                                    '_,
+                                                    Vec<Client>
+                                                > = clients_clone.lock().unwrap();
+
+                                                // Access the topics vector within the mutex
+                                                let mut topics: MutexGuard<
+                                                    '_,
+                                                    Vec<Topic>
+                                                > = topics_clone.lock().unwrap();
+                                                let packet_id: usize = response_clone.packet_id;
+
+                                                // Publish to subscribers with dup 0
+                                                control_packet::publish::publish(
+                                                    &mut topics,
+                                                    &mut clients,
+                                                    &response_clone.topic_name,
+                                                    &response_clone.payload_message,
+                                                    &false,
+                                                    &response_clone.qos_level,
+                                                    &response_clone.retain_flag
+                                                );
+
+                                                // Wait for puback recieved (222 seconds)
+                                                std::thread::sleep(Duration::from_secs(222));
+
+                                                // If puback has not been recieved, send a new publish with dup 1, only once
+                                            });
+                                        }
+                                        2 => {
+                                            // Store packet id
+
+                                            // Publish to subscribers with dup 0
+
+                                            // Send pubrec to client
+
+                                            // Recived pubrel form subscriber
+                                            // If yes Pubrel malformed ?
+                                            // Else set dup 1 & resend
+
+                                            // If yes, disconnect.
+                                            // Else, Send pubcomp
+                                        }
+                                        _ => {
+                                            break;
+                                        }
+                                    }
+
+                                    // If response.retain_flag is set
+                                    if response.retain_flag {
+                                        // Check if topic already exists, else push the new topic
+                                        if
+                                            let Some(index) = topics
+                                                .iter()
+                                                .position(
+                                                    |t: &Topic| t.topic_name == response.topic_name
+                                                )
+                                        {
+                                            topics[index].retained_msg = (
+                                                response.payload_message,
+                                                response.qos_level,
+                                            );
+                                        } else {
+                                            let new_topic: Topic = Topic::new(response.topic_name);
+                                            topics.push(new_topic);
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    println!("An error has occured: {}", err);
+                                    break;
+                                }
                             }
                         } else {
                             // Disconnect
@@ -412,7 +515,7 @@ fn handle_connection(
                                         }
                                     }
 
-                                    _ = tx.send(sub_packet.return_packet);
+                                    _ = tx.send(Ok(sub_packet.return_packet));
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -451,7 +554,7 @@ fn handle_connection(
                                         }
                                     }
 
-                                    _ = tx.send(unsub_packet.return_packet);
+                                    _ = tx.send(Ok(unsub_packet.return_packet));
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -470,7 +573,7 @@ fn handle_connection(
                                 Ok(return_packet) => {
                                     // Send response to the client
 
-                                    _ = tx.send(return_packet.to_vec());
+                                    _ = tx.send(Ok(return_packet.to_vec()));
                                 }
                                 Err(err) => {
                                     println!("{err}");
@@ -531,6 +634,8 @@ fn handle_connection(
     for client in clients.iter() {
         println!("Client: {:?}", client);
     }
+
+    drop(tx);
     let _ = stream.shutdown(std::net::Shutdown::Both);
 }
 
