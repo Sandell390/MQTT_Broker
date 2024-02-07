@@ -1,5 +1,6 @@
-use std::net::SocketAddr;
+use std::{sync::mpsc::Sender, time::Instant};
 
+#[derive(PartialEq)]
 pub enum PublishItemState {
     AwaitingPuback,
     PubackRecieved,
@@ -18,9 +19,10 @@ pub enum PublishItemDirection {
 
 pub struct PublishQueueItem {
     pub packet_id: usize,
+    pub timestamp_sent: Instant,
     pub publish_packet: Vec<u8>,
     pub state: PublishItemState,
     pub qos_level: u8,
     pub flow_direction: PublishItemDirection,
-    pub socket_addr: SocketAddr,
+    pub tx: Sender<PublishItemState>
 }

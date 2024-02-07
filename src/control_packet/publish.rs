@@ -1,5 +1,11 @@
-use crate::models::{ topic::Topic, client::Client };
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex, MutexGuard};
+use std::thread;
+use std::time::{Duration, Instant};
+
 use crate::common_fn;
+use crate::models::publish_queue_item::{self, PublishItemDirection, PublishItemState};
+use crate::models::{client::Client, publish_queue_item::PublishQueueItem, topic::Topic};
 use rand::Rng;
 
 #[derive(Clone)]
@@ -55,6 +61,8 @@ pub fn handle_publish(buffer: [u8; 8192], packet_length: usize) -> Result<Respon
 
             // Update current index
             current_index = response.2;
+            print!("Topic_name: {topic_name} |");
+            println!("Current index: {current_index}");
         }
         Err(err) => {
             println!("{}", err);
@@ -62,25 +70,38 @@ pub fn handle_publish(buffer: [u8; 8192], packet_length: usize) -> Result<Respon
     }
 
     let mut packet_id: usize = 0;
-    match common_fn::msb_lsb_reader::get_values(&buffer, current_index, false) {
-        Ok(response) => {
-            // Get the packet identifier
-            packet_id = response.0;
 
-            // Update current index
-            current_index = response.2;
-        }
-        Err(err) => {
-            println!("{}", err);
+    if qos_level != 0 {
+        match common_fn::msb_lsb_reader::get_values(&buffer, current_index, false) {
+            Ok(response) => {
+                // Get the packet identifier
+                packet_id = response.0;
+    
+                // Update current index
+                current_index = response.2;
+    
+                print!("Packet_id: {packet_id} |");
+                println!("Current index: {current_index}");
+            }
+            Err(err) => {
+                println!("{}", err);
+            }
         }
     }
+
 
     let mut payload_message: String = String::new();
 
     while current_index < packet_length {
-        payload_message.push(buffer[current_index] as u8 as char);
+        payload_message.push(buffer[current_index].clone() as u8 as char);
         current_index += 1;
+
+        
     }
+
+    
+    print!("payload_message: {payload_message} |");
+    println!("Current index: {current_index}");
 
     // Assemble return struct
     let response: Response = Response {
@@ -95,8 +116,19 @@ pub fn handle_publish(buffer: [u8; 8192], packet_length: usize) -> Result<Respon
     return Ok(response);
 }
 
-pub fn handle_puback() {
-    // Code goes here, I think?
+pub fn handle_puback(buffer: [u8; 8192], packet_length: usize) -> Result<usize, &'static str> {
+
+    if packet_length != 4{
+        return Err("Invalid packet length");
+    }
+
+    if buffer[1] != 2{
+        return Err("Invalid remaining length");
+    }
+
+    let packet_id: usize = common_fn::msb_lsb_reader::get_values(&buffer, 2, false)?.0;
+
+    Ok(packet_id)
 }
 
 pub fn handle_pubrec() {
@@ -148,19 +180,20 @@ pub fn handle_pubcomp() {
 pub fn publish(
     topics: &mut Vec<Topic>,
     clients: &mut Vec<Client>,
+    publish_queue: Arc<Mutex<Vec<PublishQueueItem>>>,
     topic_name: &str,
     topic_message: &str,
     dup: &bool,
     qos: &u8,
-    retain: &bool
+    retain: &bool,
 ) {
     for topic in topics.iter() {
         if topic_name == topic.topic_name {
             for client in clients.iter() {
-                if
-                    let Some(_client_index) = topic.client_ids
-                        .iter()
-                        .position(|c: &(String, u8)| &c.0 == &client.id)
+                if let Some(_client_index) = topic
+                    .client_ids
+                    .iter()
+                    .position(|c: &(String, u8)| &c.0 == &client.id)
                 {
                     let mut packet: Vec<u8> = Vec::new();
 
@@ -182,11 +215,10 @@ pub fn publish(
                         first_byte |= 1 << 0;
                     }
 
-                    let mut topic_name_bytes = common_fn::msb_lsb_creater
-                        ::create_packet(topic_name)
-                        .unwrap();
+                    let mut topic_name_bytes =
+                        common_fn::msb_lsb_creater::create_packet(topic_name).unwrap();
 
-                    let packet_id: u16 = rand::thread_rng().gen_range(1..=u16::MAX);
+                    let packet_id: usize = rand::thread_rng().gen_range(1..=65535);
 
                     let mut topic_message_bytes = topic_message.as_bytes().to_vec();
 
@@ -194,21 +226,76 @@ pub fn publish(
 
                     // Sets the remaining length later
                     packet.push(0);
+
                     packet.append(&mut topic_name_bytes);
 
                     if qos == &1 || qos == &2 {
                         packet.append(
-                            u16::try_from(packet_id).unwrap().to_be_bytes().to_vec().as_mut()
+                            common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id)
+                                .to_vec()
+                                .as_mut(),
                         );
                     }
 
                     packet.append(&mut topic_message_bytes);
 
+                    
+                    
                     packet[1] = u8::try_from(packet.len() - 2).unwrap();
 
                     println!("Publish: {:?}", packet);
 
-                    let _ = client.tx.send(Ok(packet));
+                    let _ = client.tx.send(Ok(packet.clone()));
+
+                    if *qos == 1 {
+                        let (tx, rx): (Sender<PublishItemState>, Receiver<PublishItemState>) =
+                            channel();
+
+                        let publish_queue_clone: Arc<Mutex<Vec<PublishQueueItem>>> =
+                            Arc::clone(&publish_queue);
+
+                        thread::spawn(move || {
+                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> =
+                            publish_queue_clone.lock().unwrap();
+
+                            publish_queue.push(PublishQueueItem {
+                                tx,
+                                packet_id,
+                                timestamp_sent: Instant::now(),
+                                publish_packet: packet,
+                                state: PublishItemState::AwaitingPuback,
+                                qos_level: 1,
+                                flow_direction: PublishItemDirection::ToSubscriber,
+                            });
+
+                            for i in 0..222 {
+                                match rx.try_recv() {
+                                    Ok(state) => {
+                                        if state == PublishItemState::PubackRecieved {
+                                            if let Some(index) = publish_queue.iter().position(
+                                                |t: &PublishQueueItem| t.packet_id == packet_id,
+                                            ) {
+                                                publish_queue.remove(index);
+                                            }
+
+                                            println!("QoS 1 Complete!");
+                                            break;
+                                        }
+                                    }
+                                    Err(_) => {}
+                                }
+
+                                thread::sleep(Duration::from_secs(1));
+                            }
+
+                            if let Some(index) = publish_queue
+                                .iter()
+                                .position(|t: &PublishQueueItem| t.packet_id == packet_id)
+                            {
+                                publish_queue.remove(index);
+                            }
+                        });
+                    }
                 };
             }
         }

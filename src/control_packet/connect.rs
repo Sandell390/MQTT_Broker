@@ -265,7 +265,7 @@ pub fn handle(
         username,
         password,
         socket_addr,
-        tx.clone(),
+        tx,
         connect_flags
     );
 

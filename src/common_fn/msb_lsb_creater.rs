@@ -57,3 +57,10 @@ pub fn create_packet(string_value: &str) -> Result<Vec<u8>, &'static str> {
 
     Ok(byte_packet)
 }
+
+pub fn split_into_msb_lsb(value: usize) -> [u8; 2] {
+    let msb = ((value >> 8) & 0xFF) as u8;
+    let lsb = (value & 0xFF) as u8;
+    [msb, lsb]
+}
+
