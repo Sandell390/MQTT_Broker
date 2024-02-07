@@ -195,6 +195,9 @@ pub fn publish(
                     .iter()
                     .position(|c: &(String, u8)| &c.0 == &client.id)
                 {
+
+                    println!("hej");
+
                     let mut packet: Vec<u8> = Vec::new();
 
                     let mut first_byte: u8 = 0b0011_0000;
@@ -255,23 +258,29 @@ pub fn publish(
                             Arc::clone(&publish_queue);
 
                         thread::spawn(move || {
-                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> =
-                            publish_queue_clone.lock().unwrap();
 
-                            publish_queue.push(PublishQueueItem {
-                                tx,
-                                packet_id,
-                                timestamp_sent: Instant::now(),
-                                publish_packet: packet,
-                                state: PublishItemState::AwaitingPuback,
-                                qos_level: 1,
-                                flow_direction: PublishItemDirection::ToSubscriber,
-                            });
+                            {
+                                let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> =
+                                publish_queue_clone.lock().unwrap();
+    
+                                publish_queue.push(PublishQueueItem {
+                                    tx,
+                                    packet_id,
+                                    timestamp_sent: Instant::now(),
+                                    publish_packet: packet,
+                                    state: PublishItemState::AwaitingPuback,
+                                    qos_level: 1,
+                                    flow_direction: PublishItemDirection::ToSubscriber,
+                                });
+                            }
+                            
 
                             for i in 0..222 {
                                 match rx.try_recv() {
                                     Ok(state) => {
                                         if state == PublishItemState::PubackRecieved {
+                                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> =
+                                publish_queue_clone.lock().unwrap();
                                             if let Some(index) = publish_queue.iter().position(
                                                 |t: &PublishQueueItem| t.packet_id == packet_id,
                                             ) {
@@ -288,6 +297,8 @@ pub fn publish(
                                 thread::sleep(Duration::from_secs(1));
                             }
 
+                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> =
+                                publish_queue_clone.lock().unwrap();
                             if let Some(index) = publish_queue
                                 .iter()
                                 .position(|t: &PublishQueueItem| t.packet_id == packet_id)
