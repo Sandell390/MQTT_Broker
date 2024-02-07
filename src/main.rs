@@ -49,7 +49,7 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                // Clone clients for each thread
+                // Clone Lists for each thread
                 let clients_clone: Arc<Mutex<Vec<Client>>> = Arc::clone(&clients);
                 let topics_clone: Arc<Mutex<Vec<Topic>>> = Arc::clone(&topics);
                 let publish_queue_clone: Arc<Mutex<Vec<PublishQueueItem>>> = Arc::clone(
