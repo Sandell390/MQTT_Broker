@@ -1,4 +1,4 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{ channel, Receiver, Sender };
 use std::thread;
 use std::io::{ Read, Write };
 use std::net::{ SocketAddr, TcpListener, TcpStream };
@@ -14,6 +14,16 @@ mod common_fn;
 mod models;
 mod tests;
 
+/// Entry point of the MQTT broker application.
+///
+/// # Description
+///
+/// This function serves as the entry point of the MQTT broker application.
+/// It initializes the TCP listener bound to port 1883, creates mutex-protected vectors for topics and clients,
+/// and continuously listens for incoming client connections.
+///
+/// For each incoming connection, it spawns a new thread
+/// to handle the client connection using the `handle_connection` function.
 fn main() {
     // Fetch current ip
     let my_local_ip: std::net::IpAddr = local_ip().unwrap();
@@ -26,12 +36,13 @@ fn main() {
     // Print a message indicating that the MQTT broker is listening
     println!("MQTT broker listening on {}:1883...", my_local_ip);
 
-    // Create a mutex-protected topic Vector
+    // Create a mutex-protected topics Vector
     let topics: Arc<Mutex<Vec<Topic>>> = Arc::new(Mutex::new(Vec::new()));
 
     // Create a mutex-protected clients vector
     let clients: Arc<Mutex<Vec<Client>>> = Arc::new(Mutex::new(Vec::new()));
 
+    // For each incoming connection -> Spawn a new thread to handle the client's connection, using the handle_connection function
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -52,12 +63,33 @@ fn main() {
     }
 }
 
+/// Handles the connection with a client, continuously reading data from the client
+/// and processing incoming packets according to the MQTT protocol.
+///
+/// # Arguments
+///
+/// * `stream` - A mutable reference to a TCP stream representing the connection with the client.
+/// * `clients` - An Arc-wrapped Mutex-protected vector of clients currently connected to the server.
+/// * `topics` - An Arc-wrapped Mutex-protected vector of topics subscribed to by clients.
+///
+/// # Description
+///
+/// This function processes incoming packets from the client according to the MQTT protocol.
+/// It continuously reads data from the client, interprets packet types, and handles them appropriately.
+/// Depending on the packet type, it performs actions such as establishing connections,
+/// publishing messages, subscribing to topics, unsubscribing, responding to PING requests, and disconnecting.
+///
+/// # Notes
+///
+/// This function spawns a separate thread to handle message transmission to the client
+/// and ensures that each client's connection and disconnection are logged.
+/// It also prints information about connected clients for debugging purposes.
+/// Furthermore it creates a channel (Transmit and Recieve), to handle communication between threads.
 fn handle_connection(
     mut stream: TcpStream,
     clients: Arc<Mutex<Vec<Client>>>,
     topics: Arc<Mutex<Vec<Topic>>>
 ) {
-
     let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
 
     let mut stream_clone: TcpStream = stream.try_clone().unwrap();
@@ -67,10 +99,8 @@ fn handle_connection(
             println!("Sending Publish pakcet");
             let _ = stream_clone.write(message.as_slice());
             let _ = stream_clone.flush();
-
         }
     });
-    
 
     let socket_addr: SocketAddr = stream.peer_addr().unwrap();
     let _ = stream.set_read_timeout(Some(Duration::from_secs(0)));
@@ -79,6 +109,7 @@ fn handle_connection(
     println!("Client connected: {}", socket_addr);
 
     let mut has_first_packet_arrived: bool = false;
+    let mut discard_will_msg: bool = false;
 
     // Infinite loop to continuously read data from the client
     loop {
@@ -121,7 +152,7 @@ fn handle_connection(
 
                                     // Continue with handling the connection
                                     // Send response to the client
-                                    tx.send(response.return_packet.to_vec());
+                                    _ = tx.send(response.return_packet.to_vec());
 
                                     // Set keep_alive
                                     let _ = stream.set_read_timeout(
@@ -148,7 +179,40 @@ fn handle_connection(
                     3 => {
                         // PUBLISH
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_publish(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -157,7 +221,40 @@ fn handle_connection(
                     4 => {
                         // PUBACK
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_puback(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -166,7 +263,40 @@ fn handle_connection(
                     5 => {
                         // PUBREC
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_pubrec(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -175,7 +305,40 @@ fn handle_connection(
                     6 => {
                         // PUBREL
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_pubrel(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -184,7 +347,40 @@ fn handle_connection(
                     7 => {
                         // PUBCOMP
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
+                            match
+                                control_packet::publish::handle_pubcomp(
+                                    // buffer,
+                                    // packet_length,
+                                    // socket_addr,
+                                    // &mut clients,
+                                    // tx.clone()
+                                )
+                            {
+                                _ => todo!(),
+                                // Ok(response) => {
+                                //     let keep_alive: u64 = response.keep_alive;
+
+                                //     // Continue with handling the connection
+                                //     // Send response to the client
+                                //     _ = tx.send(response.return_packet.to_vec());
+
+                                //     // Set keep_alive
+                                //     let _ = stream.set_read_timeout(
+                                //         Some(Duration::from_secs(keep_alive))
+                                //     );
+
+                                //     // DEBUG
+                                //     // Print information for each client
+                                //     println!("Client List:");
+                                //     for client in clients.iter() {
+                                //         println!("Client: {:?}", client);
+                                //     }
+                                // }
+                                // Err(err) => {
+                                //     println!("An error has occured: {}", err);
+                                //     break;
+                                // }
+                            }
                         } else {
                             // Disconnect
                             break;
@@ -199,8 +395,7 @@ fn handle_connection(
                             // Access the topic Vector
                             let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
 
-                            // Validation Logic Goes here, I think...
-                            match control_packet::subcribe::validate(buffer, packet_length) {
+                            match control_packet::subcribe::handle(buffer, packet_length) {
                                 Ok(sub_packet) => {
                                     if
                                         let Some(index) = clients
@@ -210,7 +405,7 @@ fn handle_connection(
                                         // Adding topic filters to the client
                                         for topicfilter in sub_packet.topic_qos_pair {
                                             //clients[index].add_subscription(topicfilter);
-                                            add_client_topic_list(
+                                            add_client_to_topic_list(
                                                 &mut topics,
                                                 clients[index].id.clone(),
                                                 topicfilter
@@ -218,8 +413,7 @@ fn handle_connection(
                                         }
                                     }
 
-                                    tx.send(sub_packet.return_packet);
-
+                                    _ = tx.send(sub_packet.return_packet);
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -234,12 +428,10 @@ fn handle_connection(
                     10 => {
                         // UNSUBSCRIBE
                         if has_first_packet_arrived {
-                            // Validation Logic Goes here, I think...
                             // Access the clients vector within the mutex
                             let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
 
-                            // Validation Logic Goes here, I think...
-                            match control_packet::unsubcribe::validate(buffer, packet_length) {
+                            match control_packet::unsubcribe::handle(buffer, packet_length) {
                                 Ok(unsub_packet) => {
                                     if
                                         let Some(index) = clients
@@ -252,7 +444,7 @@ fn handle_connection(
                                             .unwrap();
                                         // Removing topic filters to the client
                                         for topicfilter in unsub_packet.topic_qos_pair {
-                                            remove_client_topic_list(
+                                            remove_client_from_topic_list(
                                                 &mut topics,
                                                 clients[index].id.clone(),
                                                 topicfilter
@@ -260,9 +452,7 @@ fn handle_connection(
                                         }
                                     }
 
-
-                                    tx.send(unsub_packet.return_packet);
-
+                                    _ = tx.send(unsub_packet.return_packet);
                                 }
                                 Err(err) => {
                                     println!("An error has occured: {}", err);
@@ -281,7 +471,7 @@ fn handle_connection(
                                 Ok(return_packet) => {
                                     // Send response to the client
 
-                                    tx.send(return_packet.to_vec());
+                                    _ = tx.send(return_packet.to_vec());
                                 }
                                 Err(err) => {
                                     println!("{err}");
@@ -293,31 +483,15 @@ fn handle_connection(
                         }
                     }
                     14 => {
-                        // FUCK OFF! (Disconnect)
+                        // Disconnect
                         if has_first_packet_arrived {
-                            // Access the clients vector within the mutex
-                            let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
-
-                            // Access the topic Vector
-                            let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
-
                             // Validate reserved bits are not set
                             match control_packet::disconnect::handle(buffer, packet_length) {
                                 Ok(_response) => {
-                                    disconnect_client_by_socket_addr(
-                                        &mut topics,
-                                        &mut clients,
-                                        socket_addr,
-                                        true
-                                    );
+                                    discard_will_msg = true;
                                 }
                                 Err(_err) => {
-                                    disconnect_client_by_socket_addr(
-                                        &mut topics,
-                                        &mut clients,
-                                        socket_addr,
-                                        true
-                                    );
+                                    discard_will_msg = true;
                                 }
                             }
 
@@ -349,7 +523,7 @@ fn handle_connection(
     // Access the topics vector within the mutex
     let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
 
-    disconnect_client_by_socket_addr(&mut topics, &mut clients, socket_addr, false);
+    disconnect_client_by_socket_addr(&mut topics, &mut clients, socket_addr, discard_will_msg);
 
     println!("Client disconnected: {}", socket_addr);
 
@@ -361,6 +535,36 @@ fn handle_connection(
     let _ = stream.shutdown(std::net::Shutdown::Both);
 }
 
+/// Disconnects a client based on its socket address and performs cleanup tasks.
+///
+/// # Arguments
+///
+/// * `topics` - A mutable reference to a vector of topics.
+/// * `clients` - A mutable reference to a vector of clients.
+/// * `socket_addr` - The socket address of the client to be disconnected.
+/// * `discard_will_msg` - A boolean indicating whether to discard the client's will message.
+///
+/// # Description
+///
+/// This function disconnects a client based on its socket address and performs the following tasks:
+/// - Publishes the will message to clients that have subscribed to the will topic.
+/// - Calls the `handle_disconnect` method on the client.
+/// - Optionally discards the client's will message if specified.
+/// - Re-adds the updated client to the list of clients.
+///
+/// # Examples
+/// ```
+/// // Access the clients vector within the mutex
+/// let mut clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+///
+/// // Access the topics vector within the mutex
+/// let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
+///
+/// // Obtain the socket address
+/// let socket_addr: SocketAddr = stream.peer_addr().unwrap();
+///
+/// disconnect_client_by_socket_addr(&mut topics, &mut clients, socket_addr, false);
+/// ```
 fn disconnect_client_by_socket_addr(
     topics: &mut Vec<Topic>,
     clients: &mut Vec<Client>,
@@ -372,7 +576,6 @@ fn disconnect_client_by_socket_addr(
         let mut client: Client = clients.remove(index);
 
         // Publish the will message to clients that have subscribed on the will topic
-        // TO-DO: FIX
         control_packet::publish::publish(
             topics,
             clients,
@@ -385,10 +588,6 @@ fn disconnect_client_by_socket_addr(
 
         // Call handle_disconnect on the client
         client.handle_disconnect();
-        println!("Disconnecting the client");
-
-        // Update the client's socket_addr
-        client.socket_addr = socket_addr;
 
         if discard_will_msg {
             client.will_message = String::new();
@@ -397,13 +596,53 @@ fn disconnect_client_by_socket_addr(
         // Re-add the updated client to the list
         clients.push(client);
 
-        println!("Client found and updated.");
+        println!("Client found and disconnected.");
     } else {
-        println!("Client not found.");
+        println!("Client could not be disconnected: Client not found.");
     }
 }
 
-fn add_client_topic_list(topics: &mut Vec<Topic>, client_id: String, topic_filter: (String, u8)) {
+/// Adds a client and its associated topic filter to the list of topics.
+///
+/// # Arguments
+///
+/// * `topics` - A mutable reference to a vector of topics.
+/// * `client_id` - The ID of the client to be added.
+/// * `topic_filter` - A tuple containing the topic name and quality of service (QoS) level.
+///
+/// # Description
+///
+/// This function adds a client and its associated topic filter to the list of topics.
+/// It searches for the specified topic within the topics vector and either adds the client
+/// to the existing topic or creates a new topic if the specified topic does not exist.
+///
+/// # Examples
+///
+/// ```
+/// // Access the clients vector within the mutex
+/// let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+/// // Access the topic Vector
+/// let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
+///
+/// match control_packet::subcribe::handle(buffer, packet_length) {
+///     Ok(sub_packet) => {
+///         if
+///             let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr)
+///         {
+///             // Adding topic filters to the client
+///             for topicfilter in sub_packet.topic_qos_pair {
+///                 //clients[index].add_subscription(topicfilter);
+///                 add_client_to_topic_list(&mut topics, clients[index].id.clone(), topicfilter);
+///             }
+///         }
+///         _ = tx.send(sub_packet.return_packet);
+///     }
+/// ```
+fn add_client_to_topic_list(
+    topics: &mut Vec<Topic>,
+    client_id: String,
+    topic_filter: (String, u8)
+) {
     if let Some(index) = topics.iter().position(|t: &Topic| t.topic_name == topic_filter.0) {
         topics[index].client_ids.push((client_id, topic_filter.1));
     } else {
@@ -414,7 +653,42 @@ fn add_client_topic_list(topics: &mut Vec<Topic>, client_id: String, topic_filte
     }
 }
 
-fn remove_client_topic_list(
+/// Removes a client from being subcribed to a specific topic, from the list of topics.
+///
+/// # Arguments
+///
+/// * `topics` - A mutable reference to a vector of topics.
+/// * `client_id` - The ID of the client whose topic filter is to be removed.
+/// * `topic_filter` - A tuple containing the topic name and quality of service (QoS) level.
+///
+/// # Description
+///
+/// This function removes a specific topic filter associated with a client from the list of topics.
+/// It searches for the specified topic filter within the topics vector and removes it
+/// from the client IDs associated with that topic, if found.
+///
+/// # Examples
+///
+/// ```
+/// // Access the clients vector within the mutex
+/// let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
+/// match control_packet::unsubcribe::handle(buffer, packet_length) {
+///     Ok(unsub_packet) => {
+///         if
+///             let Some(index) = clients.iter().position(|c: &Client| c.socket_addr == socket_addr)
+///         {
+///             // Access the topic Vector
+///             let mut topics: MutexGuard<'_, Vec<Topic>> = topics.lock().unwrap();
+///             // Removing topic filters to the client
+///             for topicfilter in unsub_packet.topic_qos_pair {
+///                 remove_client_topic_list(&mut topics, clients[index].id.clone(), topicfilter);
+///             }
+///         }
+///
+///         _ = tx.send(unsub_packet.return_packet);
+///     }
+/// ```
+fn remove_client_from_topic_list(
     topics: &mut Vec<Topic>,
     client_id: String,
     topic_filter: (String, u8)

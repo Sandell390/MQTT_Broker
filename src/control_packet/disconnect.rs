@@ -1,5 +1,40 @@
 use crate::common_fn;
 
+/// Validates and handles MQTT disconnection by checking the reserved bits in the buffer.
+///
+/// # Arguments
+///
+/// * `buffer` - The buffer containing the incoming packet data.
+/// * `packet_length` - The length of the packet in the buffer.
+///
+/// # Returns
+///
+/// * `Ok("Reserved bits not set")` if the reserved bits in the buffer are not set.
+/// * `Err("Reserved bits are set")` if the reserved bits in the buffer are set.
+///
+/// # Description
+///
+/// This function validates and handles MQTT disconnection by checking the reserved bits
+/// in the buffer. It first decodes the remaining length of the packet and calculates the
+/// current index based on the packet length and remaining length. Then, it checks whether
+/// the reserved bits in the buffer are set. If the reserved bits are set, it returns an
+/// error indicating that the reserved bits are set; otherwise, it returns success.
+///
+/// # Examples
+///
+/// ```
+/// let buffer: [u8; 8192]; // Read from a tcp stream
+///
+/// // Validate reserved bits are not set
+/// match control_packet::disconnect::handle(buffer, packet_length) {
+///     Ok(_response) => {
+///         disconnect_client_by_socket_addr(&mut topics, &mut clients, socket_addr, true);
+///     }
+///     Err(_err) => {
+///         disconnect_client_by_socket_addr(&mut topics, &mut clients, socket_addr, true);
+///     }
+/// }
+/// ```
 pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<&'static str, &'static str> {
     println!("MQTT Disconnection is being validated");
 
