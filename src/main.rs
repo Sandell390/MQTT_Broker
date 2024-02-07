@@ -12,6 +12,7 @@ use crate::models::topic::Topic;
 mod control_packet;
 mod common_fn;
 mod models;
+mod tests;
 
 fn main() {
     // Fetch current ip
