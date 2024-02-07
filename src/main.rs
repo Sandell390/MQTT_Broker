@@ -249,44 +249,48 @@ fn handle_connection(
                                             );
                                         }
                                         1 => {
-                                            println!("hej7");
                                             let publish_tx_clone: Sender<Result<Vec<u8>, &str>> =
-                                                tx.clone();
+                                            tx.clone();
 
-                                                println!("hej8");
-                                            let response_clone: control_packet::publish::Response =
-                                                response.clone();
-                                                println!("hej9");
+                                        let response_clone: control_packet::publish::Response =
+                                            response.clone();
 
-                                            println!("hej10");
+                                        thread::spawn(move || {
+                                            // Access the clients vector within the mutex
+                                            let mut clients: MutexGuard<'_, Vec<Client>> =
+                                                clients_clone.lock().unwrap();
 
-                                            println!("hej11");
-                                        let packet_id: usize = response_clone.packet_id;
-                                        println!("hej12");
-                                        // Publish to subscribers with dup 0
-                                        control_packet::publish::publish(
-                                            &mut topics,
-                                            &mut clients,
-                                            publish_queue_clone,
-                                            &response_clone.topic_name,
-                                            &response_clone.payload_message,
-                                            &false,
-                                            &response_clone.qos_level,
-                                            &response_clone.retain_flag,
-                                        );
+                                            // Access the topics vector within the mutex
+                                            let mut topics: MutexGuard<'_, Vec<Topic>> =
+                                                topics_clone.lock().unwrap();
 
-                                        // Wait for puback recieved (222 seconds)
+                                            let packet_id: usize = response_clone.packet_id;
 
-                                        // Send Puback packet
-                                        let mut puback_packet: Vec<u8> = vec![64, 2];
-                                        puback_packet.append(
-                                            common_fn::msb_lsb_creater::split_into_msb_lsb(
-                                                packet_id,
-                                            )
-                                            .to_vec()
-                                            .as_mut(),
-                                        );
-                                        let _ = publish_tx_clone.send(Ok(puback_packet));
+                                            // Publish to subscribers with dup 0
+                                            control_packet::publish::publish(
+                                                &mut topics,
+                                                &mut clients,
+                                                publish_queue_clone,
+                                                &response_clone.topic_name,
+                                                &response_clone.payload_message,
+                                                &false,
+                                                &response_clone.qos_level,
+                                                &response_clone.retain_flag,
+                                            );
+
+
+                                            // Send Puback packet
+                                            let mut puback_packet: Vec<u8> = vec![64, 2];
+                                            puback_packet.append(
+                                                common_fn::msb_lsb_creater::split_into_msb_lsb(
+                                                    packet_id,
+                                                )
+                                                .to_vec()
+                                                .as_mut(),
+                                            );
+                                            let _ = publish_tx_clone.send(Ok(puback_packet));
+                                        });
+
                                         }
                                         2 => {
                                             // Store packet id
