@@ -1,6 +1,40 @@
 use crate::{ common_fn, models::sub_info::SubInfo };
 
-pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str> {
+/// Handles the Subscribe packet received from the client.
+///
+/// # Arguments
+///
+/// * `buffer` - The buffer containing the packet data.
+/// * `packet_length` - The length of the packet.
+///
+/// # Returns
+///
+/// * `Result<SubInfo, &'static str>` - A result indicating success with subscription information
+///   or an error message if the packet is invalid.
+///
+/// # Description
+///
+/// This function handles the Subscribe packet received from the client. It decodes the packet,
+/// validates its structure, retrieves the packet ID, extracts the topic filters and associated
+/// quality of service (QoS) levels, and constructs a SubInfo struct containing the subscription
+/// information. If the packet is invalid, an error message is returned.
+///
+/// # Examples
+///
+/// ```
+/// let buffer: [u8; 8192] = [0; 8192];
+/// let packet_length = 10;
+///
+/// match handle(buffer, packet_length) {
+///     Ok(sub_info) => {
+///         println!("Packet ID: {}", sub_info.packet_id);
+///         println!("Subscription Information: {:?}", sub_info.topic_qos_pair);
+///         println!("Suback Packet: {:?}", sub_info.return_packet);
+///     }
+///     Err(err) => println!("Error: {}", err),
+/// }
+/// ```
+pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str> {
     let mut remaining_length: usize = 0;
 
     match common_fn::bit_operations::decode_remaining_length(&buffer) {
@@ -87,7 +121,37 @@ pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'s
     });
 }
 
-// Assembles the SUBACK packet
+/// Assembles the SUBACK packet.
+///
+/// # Arguments
+///
+/// * `qos_arr` - An array slice containing the quality of service (QoS) levels.
+/// * `packet_id` - The packet ID as a 2-byte array.
+///
+/// # Returns
+///
+/// * `Result<Vec<u8>, &'static str>` - A result containing the assembled SUBACK packet if successful,
+///   or an error message if the assembly fails.
+///
+/// # Description
+///
+/// This function assembles the SUBACK packet used in MQTT communication. It takes an array slice of QoS levels
+/// and the packet ID, and constructs the SUBACK packet according to the MQTT protocol. The assembled packet
+/// is returned as a vector of bytes. If there is an error during assembly, an error message is returned.
+///
+/// # Examples
+///
+/// ```
+/// let qos_arr = &[0, 1, 2];
+/// let packet_id: [u8; 2] = [0x12, 0x34];
+///
+/// match assemble_suback_packet(qos_arr, packet_id) {
+///     Ok(suback_packet) => {
+///         println!("Assembled SUBACK packet: {:?}", suback_packet);
+///     }
+///     Err(err) => println!("Error: {}", err),
+/// }
+/// ```
 pub fn assemble_suback_packet(qos_arr: &[u8], packet_id: [u8; 2]) -> Result<Vec<u8>, &'static str> {
     // The length of the SUBACK Packet
     let packet_lenght: u8 = 2 + u8::try_from(qos_arr.len()).ok().unwrap();

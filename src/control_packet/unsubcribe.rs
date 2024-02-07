@@ -1,6 +1,40 @@
 use crate::{ common_fn, models::sub_info::SubInfo };
 
-pub fn validate(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str> {
+/// Handles the unsubscribe packet.
+///
+/// # Arguments
+///
+/// * `buffer` - A fixed-size buffer containing the unsubscribe packet data.
+/// * `packet_length` - The length of the packet in bytes.
+///
+/// # Returns
+///
+/// * `Result<SubInfo, &'static str>` - A result containing subscription information if successful,
+///   or an error message if the handling fails.
+///
+/// # Description
+///
+/// This function handles the unsubscribe packet in an MQTT communication. It extracts information from
+/// the unsubscribe packet, including the packet ID and the list of topics to unsubscribe from. It then
+/// assembles the corresponding unsuback packet. The extracted subscription information is returned along
+/// with the assembled unsuback packet. If there is an error during handling, an error message is returned.
+///
+/// # Examples
+///
+/// ```
+/// let buffer: [u8; 8192] = [0x82, 0x09, 0x00, 0x42, 0x01, 0x61, 0x01, 0x62, 0x01, 0x63];
+/// let packet_length: usize = 9;
+///
+/// match handle_unsubscribe(buffer, packet_length) {
+///     Ok(sub_info) => {
+///         println!("Unsubscribe Packet ID: {}", sub_info.packet_id);
+///         println!("Unsubscribed Topics: {:?}", sub_info.topic_qos_pair);
+///         println!("Unsuback Packet: {:?}", sub_info.return_packet);
+///     }
+///     Err(err) => println!("Error: {}", err),
+/// }
+/// ```
+pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str> {
     let mut remaining_length: usize = 0;
 
     match common_fn::bit_operations::decode_remaining_length(&buffer) {

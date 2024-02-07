@@ -1,3 +1,34 @@
+/// Creates a packet from the given string value according to the MQTT protocol.
+///
+/// # Arguments
+///
+/// * `string_value` - A reference to the string value to be converted into a packet.
+///
+/// # Returns
+///
+/// A Result containing a vector of bytes representing the packet, or an error message if the string
+/// value is too long to be represented by two bytes (MSB and LSB).
+///
+/// # Description
+///
+/// This function creates a packet from the given string value according to the MQTT protocol.
+/// It first checks if the length of the string value exceeds the maximum length that can be represented
+/// by two bytes (MSB and LSB).
+///
+/// If the length is within the allowed range, it calculates the length
+/// in bytes, converts it to two bytes (MSB and LSB), converts the string value to bytes, and creates
+/// a byte packet by appending the MSB, LSB, and string bytes.
+///
+/// # Errors
+///
+/// Returns an error if the length of the string value exceeds the maximum allowed length.
+///
+/// # Examples
+///
+/// ```
+/// let string: &str = "MQTT";
+/// let msb_lsb_packet = common_fn::msb_lsb_creater::create_packet(string).unwrap();
+/// ```
 pub fn create_packet(string_value: &str) -> Result<Vec<u8>, &'static str> {
     // Check if the length of the string_value exceeds the maximum length that can be represented by two bytes (MSB and LSB)
     if string_value.len() > 0xffff {
