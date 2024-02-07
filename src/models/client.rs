@@ -18,7 +18,7 @@ pub struct Client {
     pub password: String,
     pub socket_addr: SocketAddr,
     pub connect_flags: ConnectFlags,
-    pub tx: Sender<Vec<u8>>,
+    pub tx: Sender<Result<Vec<u8>, &'static str>>,
 }
 
 // Implement Eq, PartialEq, and Hash for the Client struct
@@ -71,7 +71,7 @@ impl Client {
         username: String,
         password: String,
         socket_addr: SocketAddr,
-        tx: Sender<Vec<u8>>,
+        tx: Sender<Result<Vec<u8>, &'static str>>,
         connect_flags: ConnectFlags
     ) -> Client {
         Client {

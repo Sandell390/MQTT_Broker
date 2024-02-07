@@ -67,7 +67,7 @@ pub fn handle(
     packet_length: usize,
     socket_addr: SocketAddr,
     clients: &mut Vec<Client>,
-    tx: Sender<Vec<u8>>
+    tx: Sender<Result<Vec<u8>, &'static str>>
 ) -> Result<Response, &'static str> {
     println!("MQTT Connection is being validated");
 
@@ -265,7 +265,7 @@ pub fn handle(
         username,
         password,
         socket_addr,
-        tx.clone(),
+        tx,
         connect_flags
     );
 
