@@ -1,7 +1,6 @@
 use std::{ net::SocketAddr, sync::mpsc::Sender };
 
-use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags } };
-
+use crate::{ common_fn, models::{ client::Client, flags::ConnectFlags, text_formatter::Color, text_formatter::Style, text_formatter::Reset } };
 pub struct Response {
     pub return_packet: [u8; 4],
     pub keep_alive: u64,
@@ -69,8 +68,6 @@ pub fn handle(
     clients: &mut Vec<Client>,
     tx: Sender<Result<Vec<u8>, &'static str>>
 ) -> Result<Response, &'static str> {
-    println!("MQTT Connection is being validated");
-
     // Validate packet
     let mut remaining_length: usize = 0;
     let mut connect_return_code: u8 = 0; // Used for assembling the connack packet
@@ -79,7 +76,13 @@ pub fn handle(
         Ok(value) => {
             remaining_length = value;
         }
-        Err(err) => println!("Error: {}", err),
+        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                        err,
+                        Color::BrightRed,
+                        Reset::All,
+                        Style::Italic,
+                        Reset::All
+                    ),
     }
 
     let mut has_valid_protocol_length_and_name = true;
@@ -96,7 +99,13 @@ pub fn handle(
             current_index = response.2;
         }
         Err(err) => {
-            println!("{}", err);
+            println!("{1}Error! -> {2}{3}{0}{4}",
+                err,
+                Color::BrightRed,
+                Reset::All,
+                Style::Italic,
+                Reset::All
+            );
         }
     }
 
@@ -174,7 +183,13 @@ pub fn handle(
             current_index = response.2;
         }
         Err(err) => {
-            println!("{}", err);
+            println!("{1}Error! -> {2}{3}{0}{4}",
+                err,
+                Color::BrightRed,
+                Reset::All,
+                Style::Italic,
+                Reset::All
+            );
         }
     }
 
@@ -193,7 +208,13 @@ pub fn handle(
             current_index = response.2;
         }
         Err(err) => {
-            println!("{}", err);
+            println!("{1}Error! -> {2}{3}{0}{4}",
+                err,
+                Color::BrightRed,
+                Reset::All,
+                Style::Italic,
+                Reset::All
+            );
         }
     }
 
@@ -207,7 +228,13 @@ pub fn handle(
                 current_index = response.2;
             }
             Err(err) => {
-                println!("{}", err);
+                println!("{1}Error! -> {2}{3}{0}{4}",
+                    err,
+                    Color::BrightRed,
+                    Reset::All,
+                    Style::Italic,
+                    Reset::All
+                );
             }
         }
 
@@ -219,7 +246,13 @@ pub fn handle(
                 current_index = response.2;
             }
             Err(err) => {
-                println!("{}", err);
+                println!("{1}Error! -> {2}{3}{0}{4}",
+                    err,
+                    Color::BrightRed,
+                    Reset::All,
+                    Style::Italic,
+                    Reset::All
+                );
             }
         }
     }
@@ -237,7 +270,13 @@ pub fn handle(
                 current_index = response.2;
             }
             Err(err) => {
-                println!("{}", err);
+                println!("{1}Error! -> {2}{3}{0}{4}",
+                    err,
+                    Color::BrightRed,
+                    Reset::All,
+                    Style::Italic,
+                    Reset::All
+                );
             }
         }
     }
@@ -252,7 +291,13 @@ pub fn handle(
                 current_index = response.2;
             }
             Err(err) => {
-                println!("{}", err);
+                println!("{1}Error! -> {2}{3}{0}{4}",
+                    err,
+                    Color::BrightRed,
+                    Reset::All,
+                    Style::Italic,
+                    Reset::All
+                );
             }
         }
     }
@@ -289,6 +334,7 @@ pub fn handle(
             existing_client.username = client.username;
             existing_client.password = client.password;
             existing_client.connect_flags = client.connect_flags;
+            existing_client.tx = client.tx;
 
             if existing_client.connect_flags.clean_session_flag {
                 existing_client.will_topic = client.will_topic;
@@ -312,9 +358,7 @@ pub fn handle(
     let connack_packet: [u8; 4] = [32, 2, session_present_byte, connect_return_code];
 
     if connack_packet != [32, 2, 0, 0] && connack_packet != [32, 2, 1, 0] {
-        println!("Connack not accepted {:?}", connack_packet);
-
-        return Err("");
+        return Err("Connack not accepted");
     }
 
     // Return newly assembled return packet

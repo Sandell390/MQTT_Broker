@@ -1,5 +1,7 @@
 use crate::common_fn;
 
+use crate::models::text_formatter:: { Color, Style, Reset};
+
 /// Validates and handles the MQTT packet header by checking reserved bits and remaining length.
 ///
 /// # Arguments
@@ -47,7 +49,13 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<[u8; 2], &'sta
         Ok(value) => {
             remaining_length = value;
         }
-        Err(err) => println!("Error: {}", err),
+        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                        err,
+                        Color::BrightRed,
+                        Reset::All,
+                        Style::Italic,
+                        Reset::All
+                    ),
     }
 
     if remaining_length != 0 || packet_length > 2 {

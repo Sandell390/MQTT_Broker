@@ -1,4 +1,5 @@
 use crate::{ common_fn, models::sub_info::SubInfo };
+use crate::models::text_formatter:: { Color, Style, Reset };
 
 /// Handles the Subscribe packet received from the client.
 ///
@@ -37,14 +38,21 @@ use crate::{ common_fn, models::sub_info::SubInfo };
 pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str> {
     let mut remaining_length: usize = 0;
 
+    // Gets the remaining from the packet
     match common_fn::bit_operations::decode_remaining_length(&buffer) {
         Ok(value) => {
             remaining_length = value;
         }
-        Err(err) => println!("Error: {}", err),
+        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                        err,
+                        Color::BrightRed,
+                        Reset::All,
+                        Style::Italic,
+                        Reset::All
+                    ),
     }
-
-    if remaining_length < 6 {
+    
+    if packet_length < 6 {
         return Err("Subscribe Packet does not have the required lenght");
     }
 
@@ -57,7 +65,13 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'sta
                 return Err("The first byte have bit 1 is on");
             }
         }
-        Err(err) => println!("Error: {}", err),
+        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                        err,
+                        Color::BrightRed,
+                        Reset::All,
+                        Style::Italic,
+                        Reset::All
+                    ),
     }
 
     let mut packet_id: u16 = 0;
@@ -73,7 +87,13 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'sta
             //println!("Packet ID: {}", packet_id);
         }
         Err(err) => {
-            println!("{}", err);
+            println!("{1}Error! -> {2}{3}{0}{4}",
+                err,
+                Color::BrightRed,
+                Reset::All,
+                Style::Italic,
+                Reset::All
+            );
         }
     }
 
@@ -99,11 +119,23 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'sta
                         qos_vec.push(splited_byte[1]);
                         current_index += 1;
                     }
-                    Err(err) => println!("Error: {}", err),
+                    Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                                    err,
+                                    Color::BrightRed,
+                                    Reset::All,
+                                    Style::Italic,
+                                    Reset::All
+                                ),
                 }
             }
             Err(err) => {
-                println!("{}", err);
+                println!("{1}Error! -> {2}{3}{0}{4}",
+                    err,
+                    Color::BrightRed,
+                    Reset::All,
+                    Style::Italic,
+                    Reset::All
+                );
             }
         }
     }

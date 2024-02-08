@@ -1,6 +1,6 @@
 use std::hash::{ Hash, Hasher };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConnectFlags {
     pub clean_session_flag: bool,
     pub will_flag: bool,

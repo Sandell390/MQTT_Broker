@@ -1,5 +1,6 @@
 use crate::common_fn;
 
+use crate::models::text_formatter:: { Color, Style, Reset};
 /// Validates and handles MQTT disconnection by checking the reserved bits in the buffer.
 ///
 /// # Arguments
@@ -36,15 +37,19 @@ use crate::common_fn;
 /// }
 /// ```
 pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<&'static str, &'static str> {
-    println!("MQTT Disconnection is being validated");
-
     let mut remaining_length: usize = 0;
 
     match common_fn::bit_operations::decode_remaining_length(&buffer) {
         Ok(value) => {
             remaining_length = value;
         }
-        Err(err) => println!("Error: {}", err),
+        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                        err,
+                        Color::BrightRed,
+                        Reset::All,
+                        Style::Italic,
+                        Reset::All
+                    ),
     }
 
     let current_index: usize = packet_length - remaining_length;

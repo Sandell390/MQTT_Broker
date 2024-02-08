@@ -9,7 +9,7 @@
 /// # Returns
 ///
 /// A Result containing a tuple with the following elements:
-/// - The updated index after reading the values.
+/// - The decimal value of MSB and LSB.
 /// - The string value read from the buffer, if `read_string_value` is true.
 /// - The stop index indicating the end of the read values.
 ///

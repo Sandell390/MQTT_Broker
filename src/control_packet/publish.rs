@@ -4,8 +4,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::common_fn;
-use crate::models::publish_queue_item::{self, PublishItemDirection, PublishItemState};
-use crate::models::{client::Client, publish_queue_item::PublishQueueItem, topic::Topic};
+use crate::models::publish_queue_item::{ PublishItemDirection, PublishItemState };
+use crate::models::{ client::Client, publish_queue_item::PublishQueueItem, topic::Topic };
+use crate::models::text_formatter:: { Color, Style, Reset };
 use rand::Rng;
 
 #[derive(Clone)]
@@ -18,9 +19,21 @@ pub struct Response {
     pub payload_message: String,
 }
 
+/// Handles publish packets, according to the MQTT protocol.
+///
+/// # Arguments
+///
+/// * `buffer` - A reference to the buffer, passed from the tcpStream Read function.
+/// * `packet_length` - The length of the buffer, to consider part of the packet.
+///
+/// # Returns
+///
+/// A Result containing a [`Response`] struct, or an error message.
+///
+/// # Errors
+///
+/// Returns an error if the publish packet is malformed in any way, or doesn't conform to the MQTT specification.
 pub fn handle_publish(buffer: [u8; 8192], packet_length: usize) -> Result<Response, &'static str> {
-    println!("Handling publish packet from client");
-
     // Check if each bit is set
     let flag_3: bool = (&buffer[0] & (1 << 3)) != 0; // DUP Flag
     let flag_2: bool = (&buffer[0] & (1 << 2)) != 0; // QoS 2 Flag
@@ -45,14 +58,29 @@ pub fn handle_publish(buffer: [u8; 8192], packet_length: usize) -> Result<Respon
 
     let mut remaining_length: usize = 0;
 
+    // Get the remaining length from the publish packet
     match common_fn::bit_operations::decode_remaining_length(&buffer) {
         Ok(value) => {
             remaining_length = value;
         }
-        Err(err) => println!("Error: {}", err),
+        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                        err,
+                        Color::BrightRed,
+                        Reset::All,
+                        Style::Italic,
+                        Reset::All
+                    ),
     }
 
+    // Throws an error if the packet length is lower than remaining length or equel to
+    if packet_length <= remaining_length {
+        return Err("Packet length is lower than remaining length");
+    }
+
+    // Sets the current index in the buffer
     let mut current_index: usize = packet_length - remaining_length;
+
+    // Gets the topic name
     let mut topic_name: String = String::new();
     match common_fn::msb_lsb_reader::get_values(&buffer, current_index, true) {
         Ok(response) => {
@@ -61,47 +89,48 @@ pub fn handle_publish(buffer: [u8; 8192], packet_length: usize) -> Result<Respon
 
             // Update current index
             current_index = response.2;
-            print!("Topic_name: {topic_name} |");
-            println!("Current index: {current_index}");
         }
         Err(err) => {
-            println!("{}", err);
+            println!("{1}Error! -> {2}{3}{0}{4}",
+                err,
+                Color::BrightRed,
+                Reset::All,
+                Style::Italic,
+                Reset::All
+            );
         }
     }
 
     let mut packet_id: usize = 0;
 
+    // If the QoS Level is not 0 then there is a packet id in the packet 
     if qos_level != 0 {
         match common_fn::msb_lsb_reader::get_values(&buffer, current_index, false) {
             Ok(response) => {
                 // Get the packet identifier
                 packet_id = response.0;
-    
+
                 // Update current index
                 current_index = response.2;
-    
-                print!("Packet_id: {packet_id} |");
-                println!("Current index: {current_index}");
             }
             Err(err) => {
-                println!("{}", err);
+                println!("{1}Error! -> {2}{3}{0}{4}",
+                    err,
+                    Color::BrightRed,
+                    Reset::All,
+                    Style::Italic,
+                    Reset::All
+                );
             }
         }
     }
 
-
+    // Gets the payload of the publish packet
     let mut payload_message: String = String::new();
-
     while current_index < packet_length {
         payload_message.push(buffer[current_index].clone() as u8 as char);
         current_index += 1;
-
-        
     }
-
-    
-    print!("payload_message: {payload_message} |");
-    println!("Current index: {current_index}");
 
     // Assemble return struct
     let response: Response = Response {
@@ -116,31 +145,104 @@ pub fn handle_publish(buffer: [u8; 8192], packet_length: usize) -> Result<Respon
     return Ok(response);
 }
 
+/// Handles puback packets, according to the MQTT protocol.
+///
+/// # Arguments
+///
+/// * `buffer` - A reference to the buffer, passed from the tcpStream Read function.
+/// * `packet_length` - The length of the buffer, to consider part of the packet.
+///
+/// # Returns the packet identifier as a usize
+///
+/// A Result containing a , or an error message.
+///
+/// # Errors
+///
+/// Returns an error if the packet is malformed in any way, or doesn't conform to the MQTT specification.
 pub fn handle_puback(buffer: [u8; 8192], packet_length: usize) -> Result<usize, &'static str> {
+    validate_qos_packet(buffer, packet_length)
+}
 
-    if packet_length != 4{
+/// Handles pubrec packets, according to the MQTT protocol.
+///
+/// # Arguments
+///
+/// * `buffer` - A reference to the buffer, passed from the tcpStream Read function.
+/// * `packet_length` - The length of the buffer, to consider part of the packet.
+///
+/// # Returns the packet identifier as a usize
+///
+/// A Result containing a , or an error message.
+///
+/// # Errors
+///
+/// Returns an error if the packet is malformed in any way, or doesn't conform to the MQTT specification.
+pub fn handle_pubrec(buffer: [u8; 8192], packet_length: usize) -> Result<usize, &'static str> {
+    validate_qos_packet(buffer, packet_length)
+}
+
+/// Handles pubrel packets, according to the MQTT protocol.
+///
+/// # Arguments
+///
+/// * `buffer` - A reference to the buffer, passed from the tcpStream Read function.
+/// * `packet_length` - The length of the buffer, to consider part of the packet.
+///
+/// # Returns the packet identifier as a usize
+///
+/// A Result containing a , or an error message.
+///
+/// # Errors
+///
+/// Returns an error if the packet is malformed in any way, or doesn't conform to the MQTT specification.
+pub fn handle_pubrel(buffer: [u8; 8192], packet_length: usize) -> Result<usize, &'static str> {
+    validate_qos_packet(buffer, packet_length)
+}
+
+/// Handles pubcomp packets, according to the MQTT protocol.
+///
+/// # Arguments
+///
+/// * `buffer` - A reference to the buffer, passed from the tcpStream Read function.
+/// * `packet_length` - The length of the buffer, to consider part of the packet.
+///
+/// # Returns the packet identifier as a usize
+///
+/// A Result containing a , or an error message.
+///
+/// # Errors
+///
+/// Returns an error if the packet is malformed in any way, or doesn't conform to the MQTT specification.
+pub fn handle_pubcomp(buffer: [u8; 8192], packet_length: usize) -> Result<usize, &'static str> {
+    validate_qos_packet(buffer, packet_length)
+}
+
+/// Validates QoS packets, according to the MQTT protocol.
+///
+/// # Arguments
+///
+/// * `buffer` - A reference to the buffer, passed from the tcpStream Read function.
+/// * `packet_length` - The length of the buffer, to consider part of the packet.
+///
+/// # Returns the packet identifier as a usize
+///
+/// A Result containing a , or an error message.
+///
+/// # Errors
+///
+/// Returns an error if the packet is malformed in any way, or doesn't conform to the MQTT specification.
+fn validate_qos_packet(buffer: [u8; 8192], packet_length: usize) -> Result<usize, &'static str> {
+    if packet_length != 4 {
         return Err("Invalid packet length");
     }
 
-    if buffer[1] != 2{
+    if buffer[1] != 2 {
         return Err("Invalid remaining length");
     }
 
     let packet_id: usize = common_fn::msb_lsb_reader::get_values(&buffer, 2, false)?.0;
 
     Ok(packet_id)
-}
-
-pub fn handle_pubrec() {
-    // Code goes here, I think?
-}
-
-pub fn handle_pubrel() {
-    // Code goes here, I think?
-}
-
-pub fn handle_pubcomp() {
-    // Code goes here, I think?
 }
 
 /// Publishes a message to clients subscribed to the specified topic.
@@ -183,132 +285,271 @@ pub fn publish(
     publish_queue: Arc<Mutex<Vec<PublishQueueItem>>>,
     topic_name: &str,
     topic_message: &str,
-    dup: &bool,
-    qos: &u8,
+    _dup: &bool,
+    _qos: &u8,
     retain: &bool,
 ) {
+    // Loops through the topic list and if the topic name matches
+    // Then loops all the clients to get the client id
+    // And if that matches with the client id in the topic 
     for topic in topics.iter() {
         if topic_name == topic.topic_name {
             for client in clients.iter() {
-                if let Some(_client_index) = topic
-                    .client_ids
-                    .iter()
-                    .position(|c: &(String, u8)| &c.0 == &client.id)
+                if let Some(client_index) = topic.client_ids.iter().position(|c: &(String, u8)| &c.0 == &client.id)
                 {
-
-                    println!("hej");
-
-                    let mut packet: Vec<u8> = Vec::new();
-
-                    let mut first_byte: u8 = 0b0011_0000;
-
-                    if *dup {
-                        first_byte |= 1 << 3;
-                    }
-
-                    if *qos == 2 {
-                        first_byte |= 1 << 2;
-                    }
-
-                    if *qos == 1 {
-                        first_byte |= 1 << 1;
-                    }
-
-                    if *retain {
-                        first_byte |= 1 << 0;
-                    }
-
-                    let mut topic_name_bytes =
-                        common_fn::msb_lsb_creater::create_packet(topic_name).unwrap();
-
-                    let packet_id: usize = rand::thread_rng().gen_range(1..=65535);
-
-                    let mut topic_message_bytes = topic_message.as_bytes().to_vec();
-
-                    packet.push(first_byte);
-
-                    // Sets the remaining length later
-                    packet.push(0);
-
-                    packet.append(&mut topic_name_bytes);
-
-                    if qos == &1 || qos == &2 {
-                        packet.append(
-                            common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id)
-                                .to_vec()
-                                .as_mut(),
-                        );
-                    }
-
-                    packet.append(&mut topic_message_bytes);
-
-                    
-                    
-                    packet[1] = u8::try_from(packet.len() - 2).unwrap();
-
-                    println!("Publish: {:?}", packet);
-
-                    let _ = client.tx.send(Ok(packet.clone()));
-
-                    if *qos == 1 {
-                        let (tx, rx): (Sender<PublishItemState>, Receiver<PublishItemState>) =
-                            channel();
-
-                        let publish_queue_clone: Arc<Mutex<Vec<PublishQueueItem>>> =
-                            Arc::clone(&publish_queue);
-
-                        thread::spawn(move || {
-
-                            {
-                                let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> =
-                                publish_queue_clone.lock().unwrap();
-    
-                                publish_queue.push(PublishQueueItem {
-                                    tx,
-                                    packet_id,
-                                    timestamp_sent: Instant::now(),
-                                    publish_packet: packet,
-                                    state: PublishItemState::AwaitingPuback,
-                                    qos_level: 1,
-                                    flow_direction: PublishItemDirection::ToSubscriber,
-                                });
-                            }
-                            
-
-                            for i in 0..222 {
-                                match rx.try_recv() {
-                                    Ok(state) => {
-                                        if state == PublishItemState::PubackRecieved {
-                                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> =
-                                publish_queue_clone.lock().unwrap();
-                                            if let Some(index) = publish_queue.iter().position(
-                                                |t: &PublishQueueItem| t.packet_id == packet_id,
-                                            ) {
-                                                publish_queue.remove(index);
-                                            }
-
-                                            println!("QoS 1 Complete!");
-                                            break;
-                                        }
-                                    }
-                                    Err(_) => {}
-                                }
-
-                                thread::sleep(Duration::from_secs(1));
-                            }
-
-                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> =
-                                publish_queue_clone.lock().unwrap();
-                            if let Some(index) = publish_queue
-                                .iter()
-                                .position(|t: &PublishQueueItem| t.packet_id == packet_id)
-                            {
-                                publish_queue.remove(index);
-                            }
-                        });
-                    }
+                    publish_to_client(client, Arc::clone(&publish_queue), topic, topic_message, &topic.client_ids[client_index].1, retain);
                 };
             }
         }
+    }
+}
+
+/// Publish a payload to a client.
+/// 
+/// # Arguments
+///
+/// * `client` - A reference to the [`Client`] struct.
+/// * `publish_queue` - A clone of the publish queue
+/// * `buffer` - A reference to the buffer, passed from the tcpStream Read function.
+/// * `packet_length` - The length of the buffer, to consider part of the packet.
+///
+/// # Returns the packet identifier as a usize
+///
+/// A Result containing a , or an error message.
+///
+/// # Errors
+///
+/// Returns an error if reciever fails.
+pub fn publish_to_client(client: &Client, publish_queue: Arc<Mutex<Vec<PublishQueueItem>>>, topic: &Topic, topic_message: &str, qos: &u8,retain: &bool) {
+    
+    // Publish packet
+    let mut packet: Vec<u8> = Vec::new();
+
+    // Sets the first half of the first byte (control type) to publish
+    let mut first_byte: u8 = 0b0011_0000;
+
+    if *qos == 2 {
+        first_byte |= 1 << 2;
+    } else if *qos == 1 {
+        first_byte |= 1 << 1;
+    }
+
+    // Sets the retain flag, according to the passed parameter [`retain`]
+    if *retain {
+        first_byte |= 1 << 0;
+    }
+
+    // Gets the topic name bytes 
+    let mut topic_name_bytes = common_fn::msb_lsb_creater::create_packet(&topic.topic_name).unwrap();
+
+    // Generates a random packet id
+    let packet_id: usize = rand::thread_rng().gen_range(1..=65535);
+
+    // Gets the topic message bytes, from the passed parameter
+    let mut topic_message_bytes = topic_message.as_bytes().to_vec();
+
+    // Puts the first in the packet
+    packet.push(first_byte);
+
+    // Sets the remaining length later
+    packet.push(0);
+
+    // Append all the topic name bytes to the packet
+    packet.append(&mut topic_name_bytes);
+
+    // If the client have subscribed with QoS 1 or QoS 2 then the publish packet needs to have a packet id
+    if *qos == 1 || *qos == 2 {
+        packet.append(
+            common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id)
+                .to_vec()
+                .as_mut(),
+        );
+    }
+
+    // Append the topic_message_bytes to the publish packet
+    packet.append(&mut topic_message_bytes);
+
+    // Sets the remaining length minus the fixed header
+    packet[1] = u8::try_from(packet.len() - 2).unwrap();
+
+    // Send publish packet to the client
+    let _ = client.tx.send(Ok(packet.clone()));
+
+    // If the client have subscribe with QoS 1, then make the QoS 1 flow
+    if *qos == 1 {
+        
+        // Create a new channel, for later passing the tx back to another thread (handle_connection), for inter-thread communication.
+        let (tx, rx): (Sender<PublishItemState>, Receiver<PublishItemState>) = channel();
+
+        // Clones the publish queue list
+        let publish_queue_clone: Arc<Mutex<Vec<PublishQueueItem>>> = Arc::clone(&publish_queue);
+
+        // Clone the client
+        let client_clone: Client = client.clone();
+
+        // QoS 1 Session thread
+        thread::spawn(move || {
+            {
+                // Unlock the publish_queue, or wait until it is available
+                let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone.lock().unwrap();
+
+                // Adds a new publish queue item to the publish queue 
+                publish_queue.push(PublishQueueItem {
+                    tx,
+                    packet_id,
+                    timestamp_sent: Instant::now(),
+                    publish_packet: packet.clone(),
+                    state: PublishItemState::AwaitingPuback,
+                    qos_level: 1,
+                    flow_direction: PublishItemDirection::ToSubscriber,
+                });
+            }
+            // Wait for 2220 miliseconds, calculated by the max size of a payload (256 mb)
+            // Downloaded with a 10Mbps internet connection (205 seconds), and then a little 
+            // extra time to handle the packet and get the reply.
+            for _i in 0..2220 {
+                match rx.try_recv() {
+                    Ok(state) => {
+                        if state == PublishItemState::PubackRecieved {
+                            // Unlock the publish_queue, or wait until it is available
+                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone.lock().unwrap();
+
+                            // Attempt to find the publish item in the queue, to remove it.
+                            if let Some(index) = publish_queue.iter().position(
+                                |t: &PublishQueueItem| t.packet_id == packet_id,
+                            ) {
+                                publish_queue.remove(index);
+                            }
+
+                            return;
+                        }
+                    }
+                    Err(_) => {}
+                }
+
+                thread::sleep(Duration::from_millis(100));
+            }
+
+            // Send the packet to the client
+            let _ = client_clone.tx.send(Ok(packet.clone()));
+
+            // Unlock the publish_queue, or wait until it is available
+            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone.lock().unwrap();
+
+            // Attempt to find the publish item in the queue, to remove it.
+            if let Some(index) = publish_queue
+                .iter()
+                .position(|t: &PublishQueueItem| t.packet_id == packet_id)
+            {
+                publish_queue.remove(index);
+            }
+        });
+    } else if *qos == 2 {
+        // Create a new channel, for later passing the tx back to another thread (handle_connection), for inter-thread communication.
+        let (tx, rx): (Sender<PublishItemState>, Receiver<PublishItemState>) = channel();
+
+        // Clones the publish queue list
+        let publish_queue_clone: Arc<Mutex<Vec<PublishQueueItem>>> = Arc::clone(&publish_queue);
+
+        // Clone the client
+        let client_clone: Client = client.clone();
+
+        // QoS 2 Session thread
+        thread::spawn(move || {
+
+            // Adds a new publish queue item to the publish queue 
+            {
+                let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone.lock().unwrap();
+
+                // Adds a new publish queue item to the publish queue 
+                publish_queue.push(PublishQueueItem {
+                    tx,
+                    packet_id,
+                    timestamp_sent: Instant::now(),
+                    publish_packet: packet.clone(),
+                    state: PublishItemState::AwaitingPubrec,
+                    qos_level: 2,
+                    flow_direction: PublishItemDirection::ToSubscriber,
+                });
+            }
+
+            let has_received_pubrec: bool = false;
+            // Wait for 2220 miliseconds, calculated by the max size of a payload (256 mb)
+            // Downloaded with a 10Mbps internet connection (205 seconds), and then a little 
+            // extra time to handle the packet and get the reply.
+            'pubrec: while !has_received_pubrec {
+                for _i in 0..2220 {
+                    match rx.try_recv() {
+                        Ok(state) => {
+                            if state == PublishItemState::PubrecRecieved {
+                                break 'pubrec;
+                            }
+                        }
+                        Err(err) => {
+                            println!("{1}Error! -> {2}{3}{0}{4}",
+                                err,
+                                Color::BrightRed,
+                                Reset::All,
+                                Style::Italic,
+                                Reset::All
+                            );
+                        }
+                    }
+
+                    thread::sleep(Duration::from_millis(100));
+                }
+
+                // Set dup flag on packet
+                println!("{:b}", &packet[0]);
+                packet[0] |= 1 << 3;
+                _ = client_clone.tx.send(Ok(packet.clone()))
+            }
+
+            // The control packet type and remaining length of the packet
+            let mut pubrel_packet: Vec<u8> = vec![96, 2];
+            
+            // Appends the packet id to the PUBREL packet
+            pubrel_packet.append(common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut(),);
+
+            // Sends pubrel to the client
+            _ = client_clone.tx.send(Ok(pubrel_packet));
+
+            let has_received_pubcomp: bool = false;
+            // Waits for the client to send a pubcomp
+            'pubcomp: while !has_received_pubcomp {
+                for _i in 0..2220 {
+                    match rx.try_recv() {
+                        Ok(state) => {
+                            if state == PublishItemState::PubcompRecieved {
+                                let mut publish_queue: MutexGuard<
+                                    '_,
+                                    Vec<PublishQueueItem>,
+                                > = publish_queue_clone.lock().unwrap();
+                                if let Some(index) = publish_queue.iter().position(
+                                    |t: &PublishQueueItem| t.packet_id == packet_id,
+                                ) {
+                                    publish_queue.remove(index);
+                                }
+                                
+                                break 'pubcomp;
+                            }
+                        }
+                        Err(_) => {}
+                    }
+
+                    thread::sleep(Duration::from_millis(100));
+                }
+                
+                // Set the control packet type and remaining length of the packet
+                let mut pubrel_packet: Vec<u8> = vec![96, 2];
+                
+                // Appends the packet id to the PUBREL packet
+                pubrel_packet.append(common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut(),);
+                
+                // Send the PUBREL packet to the client
+                _ = client_clone.tx.send(Ok(pubrel_packet));
+            }
+
+        });
     }
 }

@@ -1,5 +1,5 @@
 use std::hash::{ Hash, Hasher };
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Topic {
     pub topic_name: String,
     pub retained_msg: (String, u8),
