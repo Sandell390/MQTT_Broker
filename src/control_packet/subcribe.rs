@@ -35,7 +35,7 @@ use crate::models::text_formatter:: { Color, Style, Reset };
 ///     Err(err) => println!("Error: {}", err),
 /// }
 /// ```
-pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str> {
+pub fn handle(buffer: &[u8], packet_length: usize) -> Result<SubInfo, &'static str> {
     let mut remaining_length: usize = 0;
 
     // Gets the remaining from the packet
@@ -114,9 +114,16 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'sta
                 // Gets the QoS to the topic filter
                 match common_fn::bit_operations::split_byte(&buffer[current_index], 6) {
                     Ok(splited_byte) => {
+
+                        if splited_byte[1] >= 3 {
+                            topic_qos_pair.push((response.1, 0x80));
+                            qos_vec.push(0x80);
+                        }else{
                         // Inserts both topic filter and QoS into the Vector
                         topic_qos_pair.push((response.1, splited_byte[1]));
                         qos_vec.push(splited_byte[1]);
+                        }
+
                         current_index += 1;
                     }
                     Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",

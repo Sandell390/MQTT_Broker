@@ -104,6 +104,10 @@ pub fn split_byte(byte: &u8, split_index: usize) -> Result<[u8; 2], &'static str
         return Err("split_index is not allowed to more than 7");
     }
 
+    if split_index == 0 {
+        return Err("split_index is not allowed to be 0");
+    }
+
     // Convert byte to a 8-bit string
     let bits_string: String = format!("{:08b}", byte);
 

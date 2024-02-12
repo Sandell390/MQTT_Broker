@@ -35,7 +35,7 @@ use crate::models::text_formatter:: { Color, Style, Reset };
 ///     Err(err) => println!("Error: {}", err),
 /// }
 /// ```
-pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'static str> {
+pub fn handle(buffer: &[u8], packet_length: usize) -> Result<SubInfo, &'static str> {
     let mut remaining_length: usize = 0;
 
     match common_fn::bit_operations::decode_remaining_length(&buffer) {
@@ -51,8 +51,13 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'sta
                     ),
     }
 
-    if remaining_length < 6 {
+    if packet_length < 6 {
         return Err("Subscribe Packet does not have the required lenght");
+    }
+
+    if packet_length < remaining_length {
+        return Err("Packet lenght is lower than remaining lenght");
+
     }
 
     let mut current_index: usize = packet_length - remaining_length;

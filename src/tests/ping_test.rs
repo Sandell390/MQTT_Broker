@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod ping_fixture{
+mod ping_test{
     use crate::control_packet;
 
     //use super::*;

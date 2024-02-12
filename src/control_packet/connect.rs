@@ -43,8 +43,8 @@ pub struct Response {
 ///
 /// ```
 /// let buffer: [u8; 8192]; // Read from a tcp stream
-///
-/// match control_packet::connect::handle(buffer, packet_length, socket_addr, &mut clients, tx.clone())
+/// 
+/// let result = match control_packet::connect::handle(buffer, packet_length, socket_addr, &mut clients, tx.clone())
 /// {
 ///     Ok(response) => {
 ///         let keep_alive: u64 = response.keep_alive;
@@ -60,13 +60,14 @@ pub struct Response {
 ///         break;
 ///     }
 /// }
+/// assert_eq!(result, 10);
 /// ```
 pub fn handle(
     buffer: [u8; 8192],
     packet_length: usize,
     socket_addr: SocketAddr,
     clients: &mut Vec<Client>,
-    tx: Sender<Result<Vec<u8>, &'static str>>
+    tx: Sender<Result<Vec<u8>, String>>
 ) -> Result<Response, &'static str> {
     // Validate packet
     let mut remaining_length: usize = 0;

@@ -36,7 +36,7 @@ use crate::models::text_formatter:: { Color, Style, Reset};
 ///     }
 /// }
 /// ```
-pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<&'static str, &'static str> {
+pub fn handle(buffer: &[u8], packet_length: usize) -> Result<&'static str, &'static str> {
     let mut remaining_length: usize = 0;
 
     match common_fn::bit_operations::decode_remaining_length(&buffer) {
@@ -57,7 +57,7 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<&'static str, 
     // Reserved bits MUST be 0
     let mut is_reserved_bits_set: bool = false;
 
-    if buffer[current_index] != 0 {
+    if buffer[1] != 0 {
         is_reserved_bits_set = true;
     }
 

@@ -1,6 +1,6 @@
 use std::{sync::mpsc::Sender, time::Instant};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 #[allow(dead_code)]
 pub enum PublishItemState {
     AwaitingPuback,
@@ -13,12 +13,14 @@ pub enum PublishItemState {
     PubcompRecieved,
 }
 
+#[derive( Debug)]
 #[allow(dead_code)]
 pub enum PublishItemDirection {
     ToSubscriber,
     FromClient,
 }
 
+#[derive( Debug)]
 pub struct PublishQueueItem {
     pub packet_id: usize,
     pub timestamp_sent: Instant,

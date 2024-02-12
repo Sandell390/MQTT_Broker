@@ -482,6 +482,17 @@ pub fn publish_to_client(client: &Client, publish_queue: Arc<Mutex<Vec<PublishQu
                     match rx.try_recv() {
                         Ok(state) => {
                             if state == PublishItemState::PubrecRecieved {
+
+                                let mut publish_queue: MutexGuard<
+                                    '_,
+                                    Vec<PublishQueueItem>,
+                                > = publish_queue_clone.lock().unwrap();
+                                if let Some(index) = publish_queue.iter().position(
+                                    |t: &PublishQueueItem| t.packet_id == packet_id,
+                                ) {
+                                    publish_queue[index].state = state;
+                                }
+
                                 break 'pubrec;
                             }
                         }

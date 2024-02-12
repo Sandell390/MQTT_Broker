@@ -112,8 +112,8 @@ fn handle_connection(
     // Creates a new asynchronous channel, returning the sender/receiver halves.
     // All data sent on the Sender will become available on the Receiver, also across threads.
     let (tx, rx): (
-        Sender<Result<Vec<u8>, &'static str>>,
-        Receiver<Result<Vec<u8>, &'static str>>,
+        Sender<Result<Vec<u8>, String>>,
+        Receiver<Result<Vec<u8>, String>>,
     ) = channel();
     
     // Copy the stream
@@ -250,171 +250,10 @@ fn handle_connection(
                                             );
                                         }
                                         1 => {
-                                            // Clone the client sender to be used in the publish thread
-                                            let publish_tx_clone: Sender<Result<Vec<u8>, &str>> = tx.clone();
-
-                                            // Clone the respone object from handle_publish
-                                            let response_clone: control_packet::publish::Response = response.clone();
-
-                                            thread::spawn(move || {
-                                                // Access the clients vector within the mutex
-                                                let mut clients: MutexGuard<'_, Vec<Client>> = clients_clone.lock().unwrap();
-
-                                                // Access the topics vector within the mutex
-                                                let mut topics: MutexGuard<'_, Vec<Topic>> = topics_clone.lock().unwrap();
-
-                                                // Store the packet id
-                                                let packet_id: usize = response_clone.packet_id;
-
-                                                // Publish to subscribers with dup 0
-                                                control_packet::publish::publish(
-                                                    &mut topics,
-                                                    &mut clients,
-                                                    publish_queue_clone,
-                                                    &response_clone.topic_name,
-                                                    &response_clone.payload_message,
-                                                    &false,
-                                                    &response_clone.qos_level,
-                                                    &false,
-                                                );
-
-                                                // Send Puback packet
-                                                let mut puback_packet: Vec<u8> = vec![64, 2];
-                                                puback_packet.append(
-                                                    common_fn::msb_lsb_creater::split_into_msb_lsb(
-                                                        packet_id,
-                                                    ).to_vec().as_mut()
-                                                );
-                                                
-                                                _ = publish_tx_clone.send(Ok(puback_packet));
-                                            });
+                                            handle_qos_1_session(tx.clone(), response.clone(), clients_clone, topics_clone, publish_queue_clone);
                                         }
                                         2 => {
-                                            // Clone the client sender to be used in the publish thread
-                                            let publish_tx_clone: Sender<Result<Vec<u8>, &str>> = tx.clone();
-                                           
-                                            // Clone the respone object from handle_publish
-                                            let response_clone: control_packet::publish::Response = response.clone();
-
-                                            // Creates the channels so the "main client" thread can send the QoS packets to the publisher QoS Session
-                                            let (tx_qos, rx_qos): (Sender<PublishItemState>, Receiver<PublishItemState>) = channel();
-
-                                            // QoS Session thread
-                                            thread::spawn(move || {
-                                                // Access the clients vector within the mutex
-                                                let mut clients: MutexGuard<'_, Vec<Client>> = clients_clone.lock().unwrap();
-
-                                                // Access the topics vector within the mutex
-                                                let mut topics: MutexGuard<'_, Vec<Topic>> = topics_clone.lock().unwrap();
-
-                                                // Save packet_id
-                                                let packet_id: usize = response_clone.packet_id;
-
-                                                // Creates another clone of publish so it can be used more times
-                                                let publish_queue_clone_clone: Arc<Mutex<Vec<PublishQueueItem>>> = Arc::clone(&publish_queue_clone);
-                                                // Checks if the packet id is already used with a Publish Item
-                                                {
-                                                    // Access the publish queue within the mutex
-                                                    let publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone.lock().unwrap();
-
-                                                    // If the packet id already is in the publish queue then sends another pubrec
-                                                    if let Some(_index) = publish_queue.iter().position(
-                                                            |queue_item: &PublishQueueItem| {
-                                                                queue_item.packet_id == packet_id
-                                                            },
-                                                        )
-                                                    {
-                                                        // Send pubrec to client (publisher)
-                                                        let mut pubrec_packet: Vec<u8> = vec![80, 2];
-                                                        
-                                                        pubrec_packet.append(
-                                                            common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut(),
-                                                        );
-                                                        
-                                                        _ = publish_tx_clone.send(Ok(pubrec_packet));
-                                                    } else {
-                                                        // If the packet id is not used then we can send a publish to the subscribers
-                                                        drop(publish_queue);
-
-                                                        // Publish to subscribers with dup 0
-                                                        control_packet::publish::publish(
-                                                            &mut topics,
-                                                            &mut clients,
-                                                            publish_queue_clone,
-                                                            &response_clone.topic_name,
-                                                            &response_clone.payload_message,
-                                                            &false,
-                                                            &response_clone.qos_level,
-                                                            &false,
-                                                        );
-
-                                                        // Send pubrec to client (publisher)
-                                                        let mut pubrec_packet: Vec<u8> = vec![80, 2];
-
-                                                        pubrec_packet.append(common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut());
-                                                        _ = publish_tx_clone.send(Ok(pubrec_packet));
-
-                                                        // Push new publish queue item to the list
-                                                        {
-                                                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone_clone.lock().unwrap();
-
-                                                            publish_queue.push(PublishQueueItem {
-                                                                tx: tx_qos,
-                                                                packet_id,
-                                                                timestamp_sent: Instant::now(),
-                                                                publish_packet: vec![],
-                                                                state: PublishItemState::AwaitingPuback,
-                                                                qos_level: 1,
-                                                                flow_direction: PublishItemDirection::ToSubscriber,
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                // Loops until we have received Pubrel packet
-                                                let has_recieved_pubrel: bool = false;
-                                                'pubrel: while !has_recieved_pubrel {
-                                                    for _i in 0..2220 {
-                                                        // If there is something in the QoS receiver then we can contiune with the flow
-                                                        match rx_qos.try_recv() {
-                                                            Ok(state) => {
-                                                                if state == PublishItemState::PubrelRecieved
-                                                                {
-                                                                    // Access the publish queue
-                                                                    let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone_clone.lock().unwrap();
-    
-                                                                    // Finds the index of publish queue item that match with packet id
-                                                                    if let Some(index) = publish_queue.iter().position(|t: &PublishQueueItem|
-                                                                        {
-                                                                            t.packet_id == packet_id
-                                                                        })
-                                                                    {
-
-                                                                        // Send Pubcomp
-                                                                        let mut pubcomp_packet: Vec<u8> = vec![112, 2];
-                                                                        pubcomp_packet.append(common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut());
-                                                                        _ = publish_tx_clone.send(Ok(pubcomp_packet));
-    
-                                                                        // Removes the publish queue item from the queue
-                                                                        publish_queue.remove(index);
-                                                                    }
-                                                                    
-                                                                    break 'pubrel;
-                                                                }
-                                                            }
-                                                            Err(_) => {}
-                                                        }
-    
-                                                        thread::sleep(Duration::from_millis(100));
-                                                    }
-
-                                                    // Sends pubrec again if we have not received pubrel from the client
-                                                    let mut pubrec_packet: Vec<u8> = vec![80, 2];
-
-                                                    pubrec_packet.append(common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut());
-                                                    _ = publish_tx_clone.send(Ok(pubrec_packet));
-                                                }
-                                            });
+                                            handle_qos_2_session(tx.clone(), response.clone(), clients_clone, topics_clone, publish_queue_clone);
                                         }
                                         _ => {
                                             break;
@@ -589,7 +428,7 @@ fn handle_connection(
                         // SUBSCRIBE
                         if has_first_packet_arrived {
                             // Access the topic Vector
-                            match control_packet::subcribe::handle(buffer, packet_length) {
+                            match control_packet::subcribe::handle(&buffer, packet_length) {
                                 Ok(sub_packet) => {
 
                                     // Sends suback to the client
@@ -651,7 +490,7 @@ fn handle_connection(
                             // Access the clients vector within the mutex
                             let clients: MutexGuard<'_, Vec<Client>> = clients.lock().unwrap();
                             
-                            match control_packet::unsubcribe::handle(buffer, packet_length) {
+                            match control_packet::unsubcribe::handle(&buffer, packet_length) {
                                 Ok(unsub_packet) => {
 
                                     // Finds the client that matches the socket_addr so we can remove the client from the topic list
@@ -716,7 +555,7 @@ fn handle_connection(
                         // Disconnect
                         if has_first_packet_arrived {
                             // Validate reserved bits are not set
-                            match control_packet::disconnect::handle(buffer, packet_length) {
+                            match control_packet::disconnect::handle(&buffer, packet_length) {
                                 Ok(_response) => {
                                     discard_will_msg = true;
                                 }
@@ -770,7 +609,7 @@ fn handle_connection(
     println!("{1}Success! -> {2}{3}Client disconnected: {0}{2}", socket_addr, Color::LimeGreen, Reset::All, Style::Italic);
 
     // Sends an error to the Write thread so it can stop the thread and closes the connection
-    _ = tx.send(Err("Close Stream"));
+    _ = tx.send(Err("Close Stream".to_string()));
     drop(tx);
     
     _ = stream.shutdown(std::net::Shutdown::Both);
@@ -967,4 +806,185 @@ fn remove_client_from_topic_list(
             topics[index].client_ids.remove(client_index);
         }
     }
+}
+
+fn handle_qos_2_session(
+    tx: Sender<Result<Vec<u8>, String>>,
+    response: control_packet::publish::Response,
+    clients_clone: Arc<Mutex<Vec<Client>>>,
+    topics_clone: Arc<Mutex<Vec<Topic>>>,
+    publish_queue_clone: Arc<Mutex<Vec<PublishQueueItem>>>,
+) {
+    // Clone the client sender to be used in the publish thread
+    let publish_tx_clone: Sender<Result<Vec<u8>, String>> = tx.clone();
+
+    // Clone the respone object from handle_publish
+    let response_clone: control_packet::publish::Response = response.clone();
+
+    // Creates the channels so the "main client" thread can send the QoS packets to the publisher QoS Session
+    let (tx_qos, rx_qos): (Sender<PublishItemState>, Receiver<PublishItemState>) = channel();
+
+    // QoS Session thread
+    thread::spawn(move || {
+        // Access the clients vector within the mutex
+        let mut clients: MutexGuard<'_, Vec<Client>> = clients_clone.lock().unwrap();
+
+        // Access the topics vector within the mutex
+        let mut topics: MutexGuard<'_, Vec<Topic>> = topics_clone.lock().unwrap();
+
+        // Save packet_id
+        let packet_id: usize = response_clone.packet_id;
+
+        // Creates another clone of publish so it can be used more times
+        let publish_queue_clone_clone: Arc<Mutex<Vec<PublishQueueItem>>> = Arc::clone(&publish_queue_clone);
+        // Checks if the packet id is already used with a Publish Item
+        {
+            // Access the publish queue within the mutex
+            let publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone.lock().unwrap();
+
+            // If the packet id already is in the publish queue then sends another pubrec
+            if let Some(_index) = publish_queue.iter().position(
+                    |queue_item: &PublishQueueItem| {
+                        queue_item.packet_id == packet_id
+                    },
+                )
+            {
+                // Send pubrec to client (publisher)
+                let mut pubrec_packet: Vec<u8> = vec![80, 2];
+
+                pubrec_packet.append(
+                    common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut(),
+                );
+
+                _ = publish_tx_clone.send(Ok(pubrec_packet));
+            } else {
+                // If the packet id is not used then we can send a publish to the subscribers
+                drop(publish_queue);
+
+                // Publish to subscribers with dup 0
+                control_packet::publish::publish(
+                    &mut topics,
+                    &mut clients,
+                    publish_queue_clone,
+                    &response_clone.topic_name,
+                    &response_clone.payload_message,
+                    &false,
+                    &response_clone.qos_level,
+                    &false,
+                );
+
+                // Send pubrec to client (publisher)
+                let mut pubrec_packet: Vec<u8> = vec![80, 2];
+
+                pubrec_packet.append(common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut());
+                _ = publish_tx_clone.send(Ok(pubrec_packet));
+
+                // Push new publish queue item to the list
+                {
+                    let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone_clone.lock().unwrap();
+
+                    publish_queue.push(PublishQueueItem {
+                        tx: tx_qos,
+                        packet_id,
+                        timestamp_sent: Instant::now(),
+                        publish_packet: vec![],
+                        state: PublishItemState::AwaitingPubrel,
+                        qos_level: 2,
+                        flow_direction: PublishItemDirection::ToSubscriber,
+                    });
+                }
+            }
+        }
+
+        // Loops until we have received Pubrel packet
+        let has_recieved_pubrel: bool = false;
+        'pubrel: while !has_recieved_pubrel {
+            for _i in 0..2220 {
+                // If there is something in the QoS receiver then we can contiune with the flow
+                match rx_qos.try_recv() {
+                    Ok(state) => {
+                        if state == PublishItemState::PubrelRecieved
+                        {
+                            // Access the publish queue
+                            let mut publish_queue: MutexGuard<'_, Vec<PublishQueueItem>> = publish_queue_clone_clone.lock().unwrap();
+
+                            // Finds the index of publish queue item that match with packet id
+                            if let Some(index) = publish_queue.iter().position(|t: &PublishQueueItem|
+                                {
+                                    t.packet_id == packet_id
+                                })
+                            {
+
+                                // Send Pubcomp
+                                let mut pubcomp_packet: Vec<u8> = vec![112, 2];
+                                pubcomp_packet.append(common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut());
+                                _ = publish_tx_clone.send(Ok(pubcomp_packet));
+
+                                // Removes the publish queue item from the queue
+                                publish_queue.remove(index);
+                            }
+
+                            break 'pubrel;
+                        }
+                    }
+                    Err(_) => {}
+                }
+
+                thread::sleep(Duration::from_millis(100));
+            }
+
+            // Sends pubrec again if we have not received pubrel from the client
+            let mut pubrec_packet: Vec<u8> = vec![80, 2];
+
+            pubrec_packet.append(common_fn::msb_lsb_creater::split_into_msb_lsb(packet_id).to_vec().as_mut());
+            _ = publish_tx_clone.send(Ok(pubrec_packet));
+        }
+    });
+}
+
+fn handle_qos_1_session(
+    tx: Sender<Result<Vec<u8>, String>>,
+    response: control_packet::publish::Response,
+    clients_clone: Arc<Mutex<Vec<Client>>>,
+    topics_clone: Arc<Mutex<Vec<Topic>>>,
+    publish_queue_clone: Arc<Mutex<Vec<PublishQueueItem>>>,
+) {
+    // Clone the client sender to be used in the publish thread
+    let publish_tx_clone: Sender<Result<Vec<u8>, String>> = tx.clone();
+
+    // Clone the response object from handle_publish
+    let response_clone: control_packet::publish::Response = response.clone();
+
+    thread::spawn(move || {
+        // Access the clients vector within the mutex
+        let mut clients: MutexGuard<'_, Vec<Client>> = clients_clone.lock().unwrap();
+
+        // Access the topics vector within the mutex
+        let mut topics: MutexGuard<'_, Vec<Topic>> = topics_clone.lock().unwrap();
+
+        // Store the packet id
+        let packet_id: usize = response_clone.packet_id;
+
+        // Publish to subscribers with dup 0
+        control_packet::publish::publish(
+            &mut topics,
+            &mut clients,
+            publish_queue_clone,
+            &response_clone.topic_name,
+            &response_clone.payload_message,
+            &false,
+            &response_clone.qos_level,
+            &false,
+        );
+
+        // Send Puback packet
+        let mut puback_packet: Vec<u8> = vec![64, 2];
+        puback_packet.append(
+            common_fn::msb_lsb_creater::split_into_msb_lsb(
+                packet_id,
+            ).to_vec().as_mut()
+        );
+        
+        _ = publish_tx_clone.send(Ok(puback_packet));
+    });
 }
