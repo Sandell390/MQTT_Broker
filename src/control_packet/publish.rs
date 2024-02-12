@@ -486,12 +486,13 @@ pub fn publish_to_client(client: &Client, publish_queue: Arc<Mutex<Vec<PublishQu
                             }
                         }
                         Err(err) => {
-                            println!("{1}Error! -> {2}{3}{0}{4}",
+                            println!("{1}Subscriber QoS 2 (Pubrec) | {5} Error! -> {2}{3}{0}{4}",
                                 err,
                                 Color::BrightRed,
                                 Reset::All,
                                 Style::Italic,
-                                Reset::All
+                                Reset::All,
+                                client_clone.id
                             );
                         }
                     }

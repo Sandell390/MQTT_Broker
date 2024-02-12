@@ -128,7 +128,7 @@ fn handle_connection(
                     _ = stream_clone.flush();
                 }
                 Err(err) => { 
-                    println!("{1}Error! -> {2}{3}{0}{4}",
+                    println!("{1}Stream Error! -> {2}{3}{0}{4}",
                         err,
                         Color::BrightRed,
                         Reset::All,
@@ -613,13 +613,14 @@ fn handle_connection(
                                                     clients[index].id.clone(),
                                                     topicfilter.clone(),
                                                 );
+                                                let client_clone: Client = clients[index].clone();
                                                                                         
                                                 // Finds the index of the topic that the client wants to subscribe on
                                                 // And send a publish message if the topic have a retained message
                                                 if let Some(index) = topics.iter().position(|t: &Topic| t.topic_name == topicfilter.0) {
                                                     if topics[index].retained_msg.0 != "".to_string() {
                                                         let message: &str = &topics[index].retained_msg.0.clone();
-                                                        control_packet::publish::publish_to_client(&clients[index], Arc::clone(&publish_queue), &topics[index], message, &topicfilter.1, &true)
+                                                        control_packet::publish::publish_to_client(&client_clone, Arc::clone(&publish_queue), &topics[index], message, &topicfilter.1, &true)
                                                     }
                                                 }
 
@@ -827,7 +828,7 @@ fn disconnect_client_by_socket_addr(
             &client.will_message,
             &false,
             &client.connect_flags.will_qos_flag,
-            &client.connect_flags.will_retain_flag,
+            &false,
         );
 
         // Call handle_disconnect on the client
