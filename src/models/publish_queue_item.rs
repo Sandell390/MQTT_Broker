@@ -1,6 +1,7 @@
 use std::{sync::mpsc::Sender, time::Instant};
 
 #[derive(PartialEq)]
+#[allow(dead_code)]
 pub enum PublishItemState {
     AwaitingPuback,
     PubackRecieved,
@@ -12,6 +13,7 @@ pub enum PublishItemState {
     PubcompRecieved,
 }
 
+#[allow(dead_code)]
 pub enum PublishItemDirection {
     ToSubscriber,
     FromClient,

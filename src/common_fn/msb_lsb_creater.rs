@@ -58,9 +58,24 @@ pub fn create_packet(string_value: &str) -> Result<Vec<u8>, &'static str> {
     Ok(byte_packet)
 }
 
+/// Converts a usize value, to a 2 byte array, containing only MSB & LSB.
+///
+/// # Arguments
+///
+/// * `value` - The decimal value, as a uszie to convert.
+///
+/// # Returns
+///
+/// A 2 byte array, containing the MSB & LSB.
+///
+/// # Examples
+///
+/// ```
+/// let usize_value: usize = 65;
+/// let msb_lsb_array = common_fn::msb_lsb_creater::split_into_msb_lsb(string);
+/// ```
 pub fn split_into_msb_lsb(value: usize) -> [u8; 2] {
     let msb = ((value >> 8) & 0xFF) as u8;
-    let lsb = (value & 0xFF) as u8;
+    let lsb: u8 = (value & 0xFF) as u8;
     [msb, lsb]
 }
-

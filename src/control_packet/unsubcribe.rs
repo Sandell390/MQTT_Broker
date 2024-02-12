@@ -1,4 +1,5 @@
 use crate::{ common_fn, models::sub_info::SubInfo };
+use crate::models::text_formatter:: { Color, Style, Reset };
 
 /// Handles the unsubscribe packet.
 ///
@@ -41,7 +42,13 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'sta
         Ok(value) => {
             remaining_length = value;
         }
-        Err(err) => println!("Error: {}", err),
+        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                        err,
+                        Color::BrightRed,
+                        Reset::All,
+                        Style::Italic,
+                        Reset::All
+                    ),
     }
 
     if remaining_length < 6 {
@@ -57,7 +64,13 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'sta
                 return Err("The first byte have bit 1 is on");
             }
         }
-        Err(err) => println!("Error: {}", err),
+        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
+                        err,
+                        Color::BrightRed,
+                        Reset::All,
+                        Style::Italic,
+                        Reset::All
+                    ),
     }
 
     let mut packet_id: u16 = 0;
@@ -73,7 +86,13 @@ pub fn handle(buffer: [u8; 8192], packet_length: usize) -> Result<SubInfo, &'sta
             //println!("Packet ID: {}", packet_id);
         }
         Err(err) => {
-            println!("{}", err);
+            println!("{1}Error! -> {2}{3}{0}{4}",
+                err,
+                Color::BrightRed,
+                Reset::All,
+                Style::Italic,
+                Reset::All
+            );
         }
     }
 

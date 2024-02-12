@@ -6,7 +6,7 @@ use std::sync::mpsc::Sender;
 use super::flags::ConnectFlags;
 use super::topic::Topic;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Client {
     pub id: String,
     pub will_topic: String,
@@ -130,8 +130,6 @@ impl Client {
 
     // Method for handling client disconnection
     pub fn handle_disconnect(&mut self) {
-        println!("Client '{}' disconnected", self.id);
-
         // Update is_connected, to reflect connection state
         self.is_connected = false;
     }
