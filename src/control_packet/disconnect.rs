@@ -1,6 +1,6 @@
 use crate::common_fn;
 
-use crate::models::text_formatter:: { Color, Style, Reset};
+use crate::models::text_formatter::{ Color, Style, Reset };
 /// Validates and handles MQTT disconnection by checking the reserved bits in the buffer.
 ///
 /// # Arguments
@@ -43,16 +43,18 @@ pub fn handle(buffer: &[u8], packet_length: usize) -> Result<&'static str, &'sta
         Ok(value) => {
             remaining_length = value;
         }
-        Err(err) => println!("{1}Error! -> {2}{3}{0}{4}",
-                        err,
-                        Color::BrightRed,
-                        Reset::All,
-                        Style::Italic,
-                        Reset::All
-                    ),
+        Err(err) =>
+            println!(
+                "{1}Error! -> {2}{3}{0}{4}",
+                err,
+                Color::BrightRed,
+                Reset::All,
+                Style::Italic,
+                Reset::All
+            ),
     }
 
-    let current_index: usize = packet_length - remaining_length;
+    let _current_index: usize = packet_length - remaining_length;
 
     // Reserved bits MUST be 0
     let mut is_reserved_bits_set: bool = false;
