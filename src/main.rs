@@ -147,7 +147,7 @@ fn handle_connection(
                     );
 
                     _ = stream_clone.shutdown(std::net::Shutdown::Both);
-                    return;
+                    break;
                 }
             }
         }
@@ -184,6 +184,9 @@ fn handle_connection(
                 let packet_type: u8 = common_fn::bit_operations
                     ::split_byte(&buffer[0], 4)
                     .expect("")[0];
+
+                println!("{:?}", &buffer[..packet_length]);
+                println!("{:?}", packet_type);
 
                 // Match for incoming packets
                 match packet_type {
@@ -732,7 +735,6 @@ fn handle_connection(
 
     // Sends an error to the Write thread so it can stop the thread and closes the connection
     _ = tx.send(Err("Close Stream".to_string()));
-    drop(tx);
 
     _ = stream.shutdown(std::net::Shutdown::Both);
 }
