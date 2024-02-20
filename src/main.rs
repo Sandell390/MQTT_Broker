@@ -147,7 +147,8 @@ fn handle_connection(
                     );
 
                     _ = stream_clone.shutdown(std::net::Shutdown::Both);
-                    break;
+
+                    panic!("Thread was killed");
                 }
             }
         }
