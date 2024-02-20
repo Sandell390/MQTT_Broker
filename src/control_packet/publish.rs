@@ -473,7 +473,7 @@ pub fn publish_to_client(client: &Client, publish_queue: Arc<Mutex<Vec<PublishQu
                 });
             }
 
-            let has_received_pubrec: bool = false;
+            let mut has_received_pubrec: bool = false;
             // Wait for 2220 miliseconds, calculated by the max size of a payload (256 mb)
             // Downloaded with a 10Mbps internet connection (205 seconds), and then a little 
             // extra time to handle the packet and get the reply.
@@ -493,6 +493,7 @@ pub fn publish_to_client(client: &Client, publish_queue: Arc<Mutex<Vec<PublishQu
                                     publish_queue[index].state = state;
                                 }
 
+                                has_received_pubrec = true;
                                 break 'pubrec;
                             }
                         }
@@ -526,7 +527,7 @@ pub fn publish_to_client(client: &Client, publish_queue: Arc<Mutex<Vec<PublishQu
             // Sends pubrel to the client
             _ = client_clone.tx.send(Ok(pubrel_packet));
 
-            let has_received_pubcomp: bool = false;
+            let mut has_received_pubcomp: bool = false;
             // Waits for the client to send a pubcomp
             'pubcomp: while !has_received_pubcomp {
                 for _i in 0..2220 {
@@ -542,7 +543,7 @@ pub fn publish_to_client(client: &Client, publish_queue: Arc<Mutex<Vec<PublishQu
                                 ) {
                                     publish_queue.remove(index);
                                 }
-                                
+                                has_received_pubcomp = true;
                                 break 'pubcomp;
                             }
                         }
